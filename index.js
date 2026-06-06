@@ -75,6 +75,14 @@ app.get('/', (req, res) => {
   res.send('✅ Bot is running');
 });
 
+// Endpoint для cron-job.org
+app.get('/send-reminder', async (req, res) => {
+  const msg = getRandomMessage();
+  console.log(`📨 [Cron trigger] Надсилаю: ${msg}`);
+  await sendTelegramMessage(msg);
+  res.send('✅ Reminder sent');
+});
+
 app.listen(PORT, () => {
   console.log('');
   console.log('🔔 Нагадування про зарядку запущено!');
