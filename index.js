@@ -6,6 +6,7 @@
  */
 
 const cron = require('node-cron');
+const express = require('express');
 require('dotenv').config();
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
@@ -66,8 +67,19 @@ cron.schedule('0 10,13,16 * * *', () => {
   timezone: 'Europe/Kyiv',
 });
 
-console.log('');
-console.log('🔔 Нагадування про зарядку запущено!');
-console.log('📅 Розклад: 10:00, 13:00, 16:00 (Europe/Kyiv)');
-console.log('⏳ Чекаю на наступний час...');
-console.log('');
+// Express сервер для health check (Render вимагає HTTP endpoint)
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.get('/', (req, res) => {
+  res.send('✅ Bot is running');
+});
+
+app.listen(PORT, () => {
+  console.log('');
+  console.log('🔔 Нагадування про зарядку запущено!');
+  console.log('📅 Розклад: 10:00, 13:00, 16:00 (Europe/Kyiv)');
+  console.log(`🌐 Health check: http://localhost:${PORT}`);
+  console.log('⏳ Чекаю на наступний час...');
+  console.log('');
+});

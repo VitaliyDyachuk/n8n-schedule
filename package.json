@@ -13,6 +13,7 @@
   "description": "Telegram reminder about exercise every 3 hours",
   "dependencies": {
     "dotenv": "^16.4.7",
+    "express": "^4.18.2",
     "node-cron": "^3.0.3"
   }
 }
