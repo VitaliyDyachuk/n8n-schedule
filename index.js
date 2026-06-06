@@ -7,6 +7,8 @@
 
 const cron = require('node-cron');
 const express = require('express');
+const fs = require('fs').promises;
+const path = require('path');
 require('dotenv').config();
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
@@ -18,7 +20,8 @@ if (!BOT_TOKEN || !CHAT_ID) {
   process.exit(1);
 }
 
-const messages = [
+const REMINDERS_FILE = path.join(__dirname, 'reminders.json');
+const defaultMessages = [
   '🏋️ Час зарядки! Встань і розімнися 💪',
   '🧘 Пора розім\'ятись! Зроби кілька вправ 🤸',
   '🏃 Перерва на зарядку! Твоє тіло скаже дякую 🙏',
@@ -27,8 +30,23 @@ const messages = [
   '⚡ Енергія на нулі? Зарядка допоможе! Вперед! 🚀',
 ];
 
-function getRandomMessage() {
-  return messages[Math.floor(Math.random() * messages.length)];
+async function loadReminders() {
+  try {
+    const data = await fs.readFile(REMINDERS_FILE, 'utf8');
+    return JSON.parse(data);
+  } catch {
+    const defaults = [
+      { id: '1', time: '10:00', message: defaultMessages[0] },
+      { id: '2', time: '13:00', message: defaultMessages[1] },
+      { id: '3', time: '16:00', message: defaultMessages[2] },
+    ];
+    await saveReminders(defaults);
+    return defaults;
+  }
+}
+
+async function saveReminders(reminders) {
+  await fs.writeFile(REMINDERS_FILE, JSON.stringify(reminders, null, 2));
 }
 
 async function sendTelegramMessage(text) {
@@ -57,37 +75,102 @@ async function sendTelegramMessage(text) {
   }
 }
 
-// Розклад: о 10:00, 13:00, 16:00 (кожні 3 години з 10 до 18, не включаючи 19+)
-// Cron: хвилина=0, години=10,13,16, кожен день
-cron.schedule('0 10,13,16 * * *', () => {
-  const msg = getRandomMessage();
-  console.log(`📨 Надсилаю: ${msg}`);
-  sendTelegramMessage(msg);
-}, {
-  timezone: 'Europe/Kyiv',
-});
+// Динамічний розклад з файлу
+async function updateCronSchedule() {
+  const reminders = await loadReminders();
+  const hours = reminders.map(r => r.time.split(':')[0]).join(',');
 
-// Express сервер для health check (Render вимагає HTTP endpoint)
+  if (currentCron) {
+    currentCron.stop();
+  }
+
+  currentCron = cron.schedule(`0 ${hours} * * *`, async () => {
+    const reminders = await loadReminders();
+    const now = new Date();
+    const currentTime = `${String(now.getHours()).padStart(2, '0')}:00`;
+
+    const reminder = reminders.find(r => r.time === currentTime);
+    if (reminder) {
+      const msg = reminder.message || defaultMessages[Math.floor(Math.random() * defaultMessages.length)];
+      console.log(`📨 Надсилаю: ${msg}`);
+      await sendTelegramMessage(msg);
+    }
+  }, {
+    timezone: 'Europe/Kyiv',
+  });
+
+  console.log(`📅 Оновлено розклад: ${reminders.map(r => r.time).join(', ')}`);
+}
+
+let currentCron = null;
+
+// Express сервер
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
+
 app.get('/', (req, res) => {
-  res.send('✅ Bot is running');
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// API: отримати всі нагадування
+app.get('/api/reminders', async (req, res) => {
+  const reminders = await loadReminders();
+  res.json(reminders);
+});
+
+// API: додати нагадування
+app.post('/api/reminders', async (req, res) => {
+  const { time, message } = req.body;
+  const reminders = await loadReminders();
+
+  const newReminder = {
+    id: Date.now().toString(),
+    time,
+    message: message || defaultMessages[Math.floor(Math.random() * defaultMessages.length)]
+  };
+
+  reminders.push(newReminder);
+  await saveReminders(reminders);
+  await updateCronSchedule();
+
+  res.json(newReminder);
+});
+
+// API: видалити нагадування
+app.delete('/api/reminders/:id', async (req, res) => {
+  const { id } = req.params;
+  const reminders = await loadReminders();
+  const filtered = reminders.filter(r => r.id !== id);
+
+  await saveReminders(filtered);
+  await updateCronSchedule();
+
+  res.json({ success: true });
 });
 
 // Endpoint для cron-job.org
 app.get('/send-reminder', async (req, res) => {
-  const msg = getRandomMessage();
+  const reminders = await loadReminders();
+  const now = new Date();
+  const currentTime = `${String(now.getHours()).padStart(2, '0')}:00`;
+
+  const reminder = reminders.find(r => r.time === currentTime);
+  const msg = reminder?.message || defaultMessages[Math.floor(Math.random() * defaultMessages.length)];
+
   console.log(`📨 [Cron trigger] Надсилаю: ${msg}`);
   await sendTelegramMessage(msg);
   res.send('✅ Reminder sent');
 });
 
-app.listen(PORT, () => {
+// Запуск
+app.listen(PORT, async () => {
   console.log('');
   console.log('🔔 Нагадування про зарядку запущено!');
-  console.log('📅 Розклад: 10:00, 13:00, 16:00 (Europe/Kyiv)');
-  console.log(`🌐 Health check: http://localhost:${PORT}`);
+  await updateCronSchedule();
+  console.log(`🌐 UI: http://localhost:${PORT}`);
   console.log('⏳ Чекаю на наступний час...');
   console.log('');
 });

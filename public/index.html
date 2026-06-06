@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Нагадування про зарядку</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 20px;
+      padding: 30px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 30px;
+      text-align: center;
+    }
+    .form {
+      margin-bottom: 30px;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      color: #555;
+      font-weight: 500;
+    }
+    input[type="time"],
+    input[type="text"] {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 16px;
+      transition: border-color 0.3s;
+    }
+    input:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    button {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    button:hover {
+      transform: translateY(-2px);
+    }
+    .reminders {
+      margin-top: 30px;
+    }
+    .reminder-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      margin-bottom: 10px;
+    }
+    .reminder-time {
+      font-weight: 600;
+      color: #333;
+    }
+    .reminder-message {
+      color: #666;
+      margin-left: 10px;
+    }
+    .delete-btn {
+      background: #ff4757;
+      padding: 8px 16px;
+      font-size: 14px;
+    }
+    .delete-btn:hover {
+      background: #ff3838;
+    }
+    .empty {
+      text-align: center;
+      color: #999;
+      padding: 30px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔔 Нагадування про зарядку</h1>
+    
+    <div class="form">
+      <div class="form-group">
+        <label>Час:</label>
+        <input type="time" id="time" required>
+      </div>
+      <div class="form-group">
+        <label>Повідомлення:</label>
+        <input type="text" id="message" placeholder="🏋️ Час зарядки! Встань і розімнися 💪">
+      </div>
+      <button onclick="addReminder()">Додати нагадування</button>
+    </div>
+    
+    <div class="reminders" id="reminders">
+      <div class="empty">Немає нагадувань</div>
+    </div>
+  </div>
+
+  <script>
+    async function loadReminders() {
+      const response = await fetch('/api/reminders');
+      const reminders = await response.json();
+      
+      const container = document.getElementById('reminders');
+      if (reminders.length === 0) {
+        container.innerHTML = '<div class="empty">Немає нагадувань</div>';
+        return;
+      }
+      
+      container.innerHTML = reminders.map(r => `
+        <div class="reminder-item">
+          <div>
+            <span class="reminder-time">${r.time}</span>
+            <span class="reminder-message">${r.message || 'Зарядка!'}</span>
+          </div>
+          <button class="delete-btn" onclick="deleteReminder('${r.id}')">Видалити</button>
+        </div>
+      `).join('');
+    }
+    
+    async function addReminder() {
+      const time = document.getElementById('time').value;
+      const message = document.getElementById('message').value;
+      
+      if (!time) {
+        alert('Вкажіть час');
+        return;
+      }
+      
+      await fetch('/api/reminders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ time, message })
+      });
+      
+      document.getElementById('time').value = '';
+      document.getElementById('message').value = '';
+      loadReminders();
+    }
+    
+    async function deleteReminder(id) {
+      await fetch(`/api/reminders/${id}`, { method: 'DELETE' });
+      loadReminders();
+    }
+    
+    loadReminders();
+  </script>
+</body>
+</html>
