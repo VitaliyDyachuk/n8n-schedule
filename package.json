@@ -1,0 +1,18 @@
+{
+  "name": "n8n-schedule",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "chat-id": "node get-chat-id.js",
+    "n8n": "npx n8n@1.94.1 start"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "Telegram reminder about exercise every 3 hours",
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "node-cron": "^3.0.3"
+  }
+}
