@@ -253,9 +253,15 @@ app.put('/api/reminders/:id', async (req, res) => {
 // Endpoint для cron-job.org
 app.get('/send-reminder', async (req, res) => {
   const reminders = await loadReminders();
+
+  // Отримати час в Europe/Kyiv
   const now = new Date();
-  const currentDay = now.getDay() || 7; // 1=Пн, 7=Нд
-  const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const options = { timeZone: 'Europe/Kyiv', hour: '2-digit', minute: '2-digit', hour12: false };
+  const currentTime = new Intl.DateTimeFormat('uk-UA', options).format(now, { hour: '2-digit', minute: '2-digit' });
+
+  // День тижня (1=Пн, 7=Нд)
+  const kievDate = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Kyiv' }));
+  const currentDay = kievDate.getDay() || 7;
 
   const matchingReminders = reminders.filter(r =>
     r.time === currentTime && r.days.includes(currentDay)
@@ -269,7 +275,7 @@ app.get('/send-reminder', async (req, res) => {
     }
     res.send(`✅ Sent ${matchingReminders.length} reminders`);
   } else {
-    res.send('✅ No reminders for this time');
+    res.send(`✅ No reminders for this time (${currentTime}, day ${currentDay})`);
   }
 });
 
