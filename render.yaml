@@ -10,3 +10,12 @@ services:
         sync: false
       - key: CHAT_ID
         sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: n8n-schedule-db
+          property: connectionString
+
+databases:
+  - name: n8n-schedule-db
+    databaseName: reminders
+    user: reminders_user
