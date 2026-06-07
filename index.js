@@ -254,14 +254,23 @@ app.put('/api/reminders/:id', async (req, res) => {
 app.get('/send-reminder', async (req, res) => {
   const reminders = await loadReminders();
   const now = new Date();
-  const currentTime = `${String(now.getHours()).padStart(2, '0')}:00`;
+  const currentDay = now.getDay() || 7; // 1=Пн, 7=Нд
+  const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
-  const reminder = reminders.find(r => r.time === currentTime);
-  const msg = reminder?.message || defaultMessages[Math.floor(Math.random() * defaultMessages.length)];
+  const matchingReminders = reminders.filter(r =>
+    r.time === currentTime && r.days.includes(currentDay)
+  );
 
-  console.log(`📨 [Cron trigger] Надсилаю: ${msg}`);
-  await sendTelegramMessage(msg);
-  res.send('✅ Reminder sent');
+  if (matchingReminders.length > 0) {
+    for (const reminder of matchingReminders) {
+      const msg = reminder.message || defaultMessages[Math.floor(Math.random() * defaultMessages.length)];
+      console.log(`📨 [Cron trigger] Надсилаю (${reminder.time}): ${msg}`);
+      await sendTelegramMessage(msg);
+    }
+    res.send(`✅ Sent ${matchingReminders.length} reminders`);
+  } else {
+    res.send('✅ No reminders for this time');
+  }
 });
 
 // Запуск
