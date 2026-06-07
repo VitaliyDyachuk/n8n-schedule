@@ -5,7 +5,7 @@
  * Запуск: node index.js
  */
 
-const cron = require('node-cron');
+const schedule = require('node-schedule');
 const express = require('express');
 const fs = require('fs').promises;
 const path = require('path');
@@ -78,31 +78,34 @@ async function sendTelegramMessage(text) {
 // Динамічний розклад з файлу
 async function updateCronSchedule() {
   const reminders = await loadReminders();
-  const hours = reminders.map(r => r.time.split(':')[0]).join(',');
 
-  if (currentCron) {
-    currentCron.stop();
+  // Зупинити всі існуючі jobs
+  if (currentJobs) {
+    currentJobs.forEach(job => job.cancel());
   }
+  currentJobs = [];
 
-  currentCron = cron.schedule(`0 ${hours} * * *`, async () => {
-    const reminders = await loadReminders();
-    const now = new Date();
-    const currentTime = `${String(now.getHours()).padStart(2, '0')}:00`;
+  // Створити job для кожного нагадування
+  reminders.forEach(reminder => {
+    const [hours, minutes] = reminder.time.split(':');
 
-    const reminder = reminders.find(r => r.time === currentTime);
-    if (reminder) {
+    const job = schedule.scheduleJob({
+      hour: parseInt(hours),
+      minute: parseInt(minutes),
+      tz: 'Europe/Kyiv'
+    }, async () => {
       const msg = reminder.message || defaultMessages[Math.floor(Math.random() * defaultMessages.length)];
-      console.log(`📨 Надсилаю: ${msg}`);
+      console.log(`📨 Надсилаю (${reminder.time}): ${msg}`);
       await sendTelegramMessage(msg);
-    }
-  }, {
-    timezone: 'Europe/Kyiv',
+    });
+
+    currentJobs.push(job);
   });
 
   console.log(`📅 Оновлено розклад: ${reminders.map(r => r.time).join(', ')}`);
 }
 
-let currentCron = null;
+let currentJobs = [];
 
 // Express сервер
 const app = express();
