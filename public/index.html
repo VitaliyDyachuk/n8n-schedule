@@ -65,7 +65,7 @@
     }
 
     button {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
       color: white;
       border: none;
       padding: 12px 24px;
@@ -209,7 +209,7 @@
       }
 
       50% {
-        box-shadow: 0 2px 16px rgba(255, 193, 7, 0.6);
+        box-shadow: 0 2px 16px rgba(74, 144, 226, 0.6);
       }
     }
   </style>
@@ -293,15 +293,43 @@
 
       const dayNames = ['', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
 
-      // Сортування за часом
-      const sortedReminders = [...reminders].sort((a, b) => a.time.localeCompare(b.time));
-
-      // Перевірити чи нагадування протягом години (Europe/Kyiv)
+      // Отримати поточний час в Europe/Kyiv
       const now = new Date();
       const kievTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Kyiv' }));
       const currentHour = kievTime.getHours();
       const currentMinute = kievTime.getMinutes();
       const currentTotalMinutes = currentHour * 60 + currentMinute;
+      const currentDay = kievTime.getDay() || 7; // 1=Пн, 7=Нд
+
+      // Сортування за актуальністю
+      const sortedReminders = [...reminders].sort((a, b) => {
+        const [hoursA, minutesA] = a.time.split(':').map(Number);
+        const [hoursB, minutesB] = b.time.split(':').map(Number);
+        const reminderTotalMinutesA = hoursA * 60 + minutesA;
+        const reminderTotalMinutesB = hoursB * 60 + minutesB;
+
+        // Перевірити чи нагадування на сьогодні
+        const isTodayA = a.days.includes(currentDay);
+        const isTodayB = b.days.includes(currentDay);
+
+        if (isTodayA && !isTodayB) return -1;
+        if (!isTodayA && isTodayB) return 1;
+
+        if (isTodayA && isTodayB) {
+          // Обидва сьогодні - сортувати за часом (найближче перше)
+          const diffA = reminderTotalMinutesA - currentTotalMinutes;
+          const diffB = reminderTotalMinutesB - currentTotalMinutes;
+
+          // Якщо час вже минув, вважати як завтра
+          const adjustedDiffA = diffA >= 0 ? diffA : diffA + 24 * 60;
+          const adjustedDiffB = diffB >= 0 ? diffB : diffB + 24 * 60;
+
+          return adjustedDiffA - adjustedDiffB;
+        }
+
+        // Обидва не сьогодні - сортувати за часом
+        return a.time.localeCompare(b.time);
+      });
 
       container.innerHTML = sortedReminders.map(r => {
         const [hours, minutes] = r.time.split(':').map(Number);
@@ -370,7 +398,7 @@
       document.getElementById('editTime').value = reminder.time;
       document.getElementById('editMessage').value = reminder.message || '';
 
-      const checkboxes = document.querySelectorAll('#editDaysSelector input');
+      const checkboxes = document.querySelectorAll('#editysS input');
       checkboxes.forEach(cb => {
         cb.checked = (reminder.days || [1, 2, 3, 4, 5]).includes(parseInt(cb.value));
       });
