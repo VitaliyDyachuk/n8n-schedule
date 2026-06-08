@@ -284,7 +284,14 @@ app.listen(PORT, async () => {
   console.log('');
   console.log('🔔 Нагадування про зарядку запущено!');
   await initDatabase();
-  await updateCronSchedule();
+
+  // Використовувати node-schedule тільки локально, на Render - cron-job.org
+  if (!process.env.RENDER) {
+    await updateCronSchedule();
+  } else {
+    console.log('⏰ Використовуємо cron-job.org для нагадувань');
+  }
+
   console.log(`🌐 UI: http://localhost:${PORT}`);
   console.log('⏳ Чекаю на наступний час...');
   console.log('');
