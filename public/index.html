@@ -196,6 +196,22 @@
     .cancel-btn:hover {
       background: #888;
     }
+
+    .reminder-item.soon {
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      50% {
+        box-shadow: 0 2px 16px rgba(255, 193, 7, 0.6);
+      }
+    }
   </style>
 </head>
 
@@ -276,19 +292,37 @@
       }
 
       const dayNames = ['', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
-      container.innerHTML = reminders.map(r => `
-        <div class="reminder-item">
-          <div>
-            <span class="reminder-time">${r.time}</span>
-            <span class="reminder-message">${r.message || 'Зарядка!'}</span>
-            <div class="reminder-days">${(r.days || [1, 2, 3, 4, 5]).map(d => dayNames[d]).join(', ')}</div>
+
+      // Сортування за часом
+      const sortedReminders = [...reminders].sort((a, b) => a.time.localeCompare(b.time));
+
+      // Перевірити чи нагадування протягом години (Europe/Kyiv)
+      const now = new Date();
+      const kievTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Kyiv' }));
+      const currentHour = kievTime.getHours();
+      const currentMinute = kievTime.getMinutes();
+      const currentTotalMinutes = currentHour * 60 + currentMinute;
+
+      container.innerHTML = sortedReminders.map(r => {
+        const [hours, minutes] = r.time.split(':').map(Number);
+        const reminderTotalMinutes = hours * 60 + minutes;
+        const diff = reminderTotalMinutes - currentTotalMinutes;
+        const isSoon = diff >= 0 && diff <= 60;
+
+        return `
+          <div class="reminder-item ${isSoon ? 'soon' : ''}">
+            <div>
+              <span class="reminder-time">${r.time}</span>
+              <span class="reminder-message">${r.message || 'Зарядка!'}</span>
+              <div class="reminder-days">${(r.days || [1, 2, 3, 4, 5]).map(d => dayNames[d]).join(', ')}</div>
+            </div>
+            <div>
+              <button class="edit-btn" onclick="openEditModal('${r.id}')">Редагувати</button>
+              <button class="delete-btn" onclick="deleteReminder('${r.id}')">Видалити</button>
+            </div>
           </div>
-          <div>
-            <button class="edit-btn" onclick="openEditModal('${r.id}')">Редагувати</button>
-            <button class="delete-btn" onclick="deleteReminder('${r.id}')">Видалити</button>
-          </div>
-        </div>
-      `).join('');
+        `;
+      }).join('');
     }
 
     async function addReminder() {

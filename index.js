@@ -286,7 +286,8 @@ app.listen(PORT, async () => {
   await initDatabase();
 
   // Використовувати node-schedule тільки локально, на Render - cron-job.org
-  if (!process.env.RENDER) {
+  const useCronJob = process.env.USE_CRON_JOB === 'true' || process.env.RENDER;
+  if (!useCronJob) {
     await updateCronSchedule();
   } else {
     console.log('⏰ Використовуємо cron-job.org для нагадувань');
