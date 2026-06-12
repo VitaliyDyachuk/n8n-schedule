@@ -177,6 +177,9 @@ async function updateCronSchedule() {
 
 let currentJobs = [];
 
+// Зберігання часу останнього відправлення для запобігання дублюванню
+const lastSentTimes = new Map();
+
 // Express сервер
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -263,17 +266,33 @@ app.get('/send-reminder', async (req, res) => {
   const kievDate = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Kyiv' }));
   const currentDay = kievDate.getDay() || 7;
 
+  console.log(`🔍 [Cron trigger] Перевірка: час=${currentTime}, день=${currentDay}, нагадувань=${reminders.length}`);
+
   const matchingReminders = reminders.filter(r =>
     r.time === currentTime && r.days.includes(currentDay)
   );
 
+  console.log(`🔍 [Cron trigger] Знайдено співпадінь: ${matchingReminders.length}`);
+
   if (matchingReminders.length > 0) {
+    let sentCount = 0;
     for (const reminder of matchingReminders) {
+      const key = `${reminder.time}-${currentDay}`;
+      const lastSent = lastSentTimes.get(key);
+
+      // Перевірка: чи минула хоча б хвилина з останнього відправлення
+      if (lastSent && (now - lastSent) < 60000) {
+        console.log(`⏭️ [Cron trigger] Пропускаю (${reminder.time}): вже відправлено ${(now - lastSent) / 1000}с тому`);
+        continue;
+      }
+
       const msg = reminder.message || defaultMessages[Math.floor(Math.random() * defaultMessages.length)];
       console.log(`📨 [Cron trigger] Надсилаю (${reminder.time}): ${msg}`);
       await sendTelegramMessage(msg);
+      lastSentTimes.set(key, now);
+      sentCount++;
     }
-    res.send(`✅ Sent ${matchingReminders.length} reminders`);
+    res.send(`✅ Sent ${sentCount} reminders`);
   } else {
     res.send(`✅ No reminders for this time (${currentTime}, day ${currentDay})`);
   }
