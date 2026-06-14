@@ -229,9 +229,6 @@ const lastSentTimes = new Map();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
-
 // Session middleware
 app.use(session({
   secret: SESSION_SECRET,
@@ -243,19 +240,31 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
+app.use(express.json());
+
 // Authentication middleware - only allow vitala8896@gmail.com
 const requireAuth = (req, res, next) => {
+  console.log('Auth check:', req.isAuthenticated(), req.user?.emails?.[0]?.value);
   if (!req.isAuthenticated()) {
-    return res.redirect('/auth/google');
+    console.log('Redirecting to login page');
+    return res.redirect('/login');
   }
 
   if (req.user.emails && req.user.emails[0] && req.user.emails[0].value === 'vitala8896@gmail.com') {
+    console.log('Auth successful for vitala8896@gmail.com');
     return next();
   }
 
+  console.log('Access denied for:', req.user?.emails?.[0]?.value);
   return res.redirect('/access-denied');
 };
 
+// Login page (no authentication required)
+app.get('/login', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+// Main page with authentication
 app.get('/', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
