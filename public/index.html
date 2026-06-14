@@ -20,7 +20,7 @@
     }
 
     .container {
-      max-width: 600px;
+      max-width: 800px;
       margin: 0 auto;
       background: white;
       border-radius: 20px;
@@ -289,6 +289,24 @@
         box-shadow: 0 2px 16px rgba(74, 144, 226, 0.6);
       }
     }
+
+    @media (max-width: 600px) {
+      .reminder-item {
+        flex-wrap: nowrap;
+      }
+
+      .reminder-item>div:last-child {
+        display: flex;
+        gap: 5px;
+        flex-shrink: 0;
+      }
+
+      .edit-btn,
+      .delete-btn {
+        padding: 6px 10px;
+        font-size: 12px;
+      }
+    }
   </style>
 </head>
 
@@ -296,7 +314,7 @@
   <div class="container">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
       <h1 style="margin: 0;">🔔 Нагадування</h1>
-      <button onclick="openAddModal()"
+      <button id="addToggleBtn" onclick="toggleAddForm()"
         style="font-size: 24px; padding: 8px 16px; width: 50px; height: 50px; border-radius: 50%;">+</button>
     </div>
 
@@ -331,7 +349,7 @@
       <div class="form-group">
         <label>Інтервал повторення (0 = щотижня):</label>
         <div class="interval-group">
-          <input type="number" id="intervalValue" min="0" value="0" placeholder="0">
+          <input type="number" id="intervalValue" min="0" value="1" placeholder="1">
           <select id="intervalType">
             <option value="week">тижнів</option>
             <option value="month">місяців</option>
@@ -390,7 +408,7 @@
         <div class="form-group">
           <label>Інтервал повторення (0 = щотижня):</label>
           <div class="interval-group">
-            <input type="number" id="editIntervalValue" min="0" value="0" placeholder="0">
+            <input type="number" id="editIntervalValue" min="0" value="1" placeholder="1">
             <select id="editIntervalType">
               <option value="week">тижнів</option>
               <option value="month">місяців</option>
@@ -421,12 +439,25 @@
       document.getElementById('startDate').value = today;
     });
 
+    function toggleAddForm() {
+      const form = document.getElementById('addForm');
+      const btn = document.getElementById('addToggleBtn');
+      if (form.style.display === 'block') {
+        form.style.display = 'none';
+        btn.textContent = '+';
+      } else {
+        form.style.display = 'block';
+        btn.textContent = '-';
+      }
+    }
+
     function openAddModal() {
       document.getElementById('addForm').style.display = 'block';
     }
 
     function closeAddForm() {
       document.getElementById('addForm').style.display = 'none';
+      document.getElementById('addToggleBtn').textContent = '+';
     }
 
     function addTimeInput() {
