@@ -542,8 +542,10 @@
 
       // Сортування за актуальністю
       const sortedReminders = [...reminders].sort((a, b) => {
-        const [hoursA, minutesA] = a.time.split(':').map(Number);
-        const [hoursB, minutesB] = b.time.split(':').map(Number);
+        const timesA = a.times || (a.time ? [a.time] : ['10:00']);
+        const timesB = b.times || (b.time ? [b.time] : ['10:00']);
+        const [hoursA, minutesA] = timesA[0].split(':').map(Number);
+        const [hoursB, minutesB] = timesB[0].split(':').map(Number);
         const reminderTotalMinutesA = hoursA * 60 + minutesA;
         const reminderTotalMinutesB = hoursB * 60 + minutesB;
 
@@ -567,7 +569,7 @@
         }
 
         // Обидва не сьогодні - сортувати за часом
-        return a.time.localeCompare(b.time);
+        return timesA[0].localeCompare(timesB[0]);
       });
 
       container.innerHTML = sortedReminders.map(r => {
@@ -707,7 +709,7 @@
       loadReminders();
     }
 
-    loadReminders();
+    loadReminde();
   </script>
 </body>
 
