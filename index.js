@@ -54,6 +54,7 @@ passport.deserializeUser((user, done) => {
 // Fallback to JSON file if no DATABASE_URL
 const REMINDERS_FILE = path.join(__dirname, 'reminders.json');
 const useDatabase = !!DATABASE_URL;
+console.log(`🗄️ Використовується ${useDatabase ? 'база даних (PostgreSQL)' : 'JSON файл'} для зберігання нагадувань`);
 
 // Initialize database
 async function initDatabase() {
@@ -75,12 +76,15 @@ async function initDatabase() {
     console.log('✅ Таблиця reminders створена або вже існує');
 
     const result = await pool.query('SELECT COUNT(*) FROM reminders');
-    if (parseInt(result.rows[0].count) === 0) {
+    const count = parseInt(result.rows[0].count);
+    console.log(`📊 В базі ${count} нагадувань`);
+
+    if (count === 0) {
       await pool.query(`
         INSERT INTO reminders (id, times, message, days, interval_value, interval_type, start_date, end_date) VALUES
         ('1', ARRAY['10:00'], '🏋️ Час зарядки! Встань і розімнися 💪', ARRAY[1,2,3,4,5], 0, 'week', CURRENT_DATE, NULL),
         ('2', ARRAY['13:00'], '🧘 Пора розім''ятись! Зроби кілька вправ 🤸', ARRAY[1,2,3,4,5], 0, 'week', CURRENT_DATE, NULL),
-        ('3', ARRAY['16:00'], '🏃 Перерва на зарядку! Твоє тіло скаже дякую 🙏', ARRAY[1,2,3,4,5], 0, 'week', CURRENT_DATE, NULL)
+        ('3', ARRAY['16:00'], '🏃 Перерва на зарядку! Твоє тіло скаже дяку 🙏', ARRAY[1,2,3,4,5], 0, 'week', CURRENT_DATE, NULL)
       `);
       console.log('✅ Дефолтні нагадування додані');
     }
