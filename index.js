@@ -37,7 +37,7 @@ const pool = new Pool({
 passport.use(new GoogleStrategy({
   clientID: GOOGLE_CLIENT_ID,
   clientSecret: GOOGLE_CLIENT_SECRET,
-  callbackURL: process.env.CALLBACK_URL || 'http://localhost:3000/auth/google/callback',
+  callbackURL: process.env.CALLBACK_URL,
   passReqToCallback: true
 }, (req, accessToken, refreshToken, profile, done) => {
   return done(null, profile);
