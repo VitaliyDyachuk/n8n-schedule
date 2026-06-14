@@ -137,6 +137,47 @@
       width: auto;
     }
 
+    .interval-group {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .interval-group input[type="number"] {
+      width: 80px;
+    }
+
+    .interval-group select {
+      flex: 1;
+      padding: 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 16px;
+    }
+
+    .interval-group select:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    .date-group {
+      display: flex;
+      gap: 10px;
+    }
+
+    .date-group input[type="date"] {
+      flex: 1;
+      padding: 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 16px;
+    }
+
+    .date-group input[type="date"]:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
     .reminder-days {
       font-size: 12px;
       color: #888;
@@ -240,6 +281,25 @@
           <label><input type="checkbox" value="7"> Нд</label>
         </div>
       </div>
+      <div class="form-group">
+        <label>Інтервал повторення (0 = щотижня):</label>
+        <div class="interval-group">
+          <input type="number" id="intervalValue" min="0" value="0" placeholder="0">
+          <select id="intervalType">
+            <option value="week">тижнів</option>
+            <option value="month">місяців</option>
+            <option value="year">років</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Початок дії:</label>
+        <input type="date" id="startDate">
+      </div>
+      <div class="form-group">
+        <label>Кінець дії (пусто = безкінечно):</label>
+        <input type="date" id="endDate">
+      </div>
       <button onclick="addReminder()">Додати нагадування</button>
     </div>
 
@@ -272,6 +332,25 @@
             <label><input type="checkbox" value="7"> Нд</label>
           </div>
         </div>
+        <div class="form-group">
+          <label>Інтервал повторення (0 = щотижня):</label>
+          <div class="interval-group">
+            <input type="number" id="editIntervalValue" min="0" value="0" placeholder="0">
+            <select id="editIntervalType">
+              <option value="week">тижнів</option>
+              <option value="month">місяців</option>
+              <option value="year">років</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Початок дії:</label>
+          <input type="date" id="editStartDate">
+        </div>
+        <div class="form-group">
+          <label>Кінець дії (пусто = безкінечно):</label>
+          <input type="date" id="editEndDate">
+        </div>
         <div class="modal-buttons">
           <button class="cancel-btn" onclick="closeEditModal()">Скасувати</button>
           <button onclick="saveEdit()">Зберегти</button>
@@ -281,6 +360,12 @@
   </div>
 
   <script>
+    // Ініціалізація поля startDate з сьогоднішньою датою
+    document.addEventListener('DOMContentLoaded', () => {
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('startDate').value = today;
+    });
+
     async function loadReminders() {
       const response = await fetch('/api/reminders');
       const reminders = await response.json();
@@ -358,6 +443,10 @@
       const message = document.getElementById('message').value;
       const checkboxes = document.querySelectorAll('.days-selector input:checked');
       const days = Array.from(checkboxes).map(cb => parseInt(cb.value));
+      const intervalValue = parseInt(document.getElementById('intervalValue').value) || 0;
+      const intervalType = document.getElementById('intervalType').value;
+      const startDate = document.getElementById('startDate').value;
+      const endDate = document.getElementById('endDate').value || null;
 
       if (!time) {
         alert('Вкажіть час');
@@ -372,11 +461,14 @@
       await fetch('/api/reminders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ time, message, days })
+        body: JSON.stringify({ time, message, days, interval_value: intervalValue, interval_type: intervalType, start_date: startDate, end_date: endDate })
       });
 
       document.getElementById('time').value = '';
       document.getElementById('message').value = '';
+      document.getElementById('intervalValue').value = '0';
+      document.getElementById('startDate').value = new Date().toISOString().split('T')[0];
+      document.getElementById('endDate').value = '';
       loadReminders();
     }
 
@@ -397,8 +489,12 @@
       editingId = id;
       document.getElementById('editTime').value = reminder.time;
       document.getElementById('editMessage').value = reminder.message || '';
+      document.getElementById('editIntervalValue').value = reminder.interval_value || 0;
+      document.getElementById('editIntervalType').value = reminder.interval_type || 'week';
+      document.getElementById('editStartDate').value = reminder.start_date || new Date().toISOString().split('T')[0];
+      document.getElementById('editEndDate').value = reminder.end_date || '';
 
-      const checkboxes = document.querySelectorAll('#editysS input');
+      const checkboxes = document.querySelectorAll('#editDaysSelector input');
       checkboxes.forEach(cb => {
         cb.checked = (reminder.days || [1, 2, 3, 4, 5]).includes(parseInt(cb.value));
       });
@@ -416,6 +512,10 @@
       const message = document.getElementById('editMessage').value;
       const checkboxes = document.querySelectorAll('#editDaysSelector input:checked');
       const days = Array.from(checkboxes).map(cb => parseInt(cb.value));
+      const intervalValue = parseInt(document.getElementById('editIntervalValue').value) || 0;
+      const intervalType = document.getElementById('editIntervalType').value;
+      const startDate = document.getElementById('editStartDate').value;
+      const endDate = document.getElementById('editEndDate').value || null;
 
       if (!time) {
         alert('Вкажіть час');
@@ -430,7 +530,7 @@
       await fetch(`/api/reminders/${editingId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ time, message, days })
+        body: JSON.stringify({ time, message, days, interval_value: intervalValue, interval_type: intervalType, start_date: startDate, end_date: endDate })
       });
 
       closeEditModal();

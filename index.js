@@ -41,7 +41,11 @@ async function initDatabase() {
         id VARCHAR(255) PRIMARY KEY,
         time VARCHAR(10) NOT NULL,
         message TEXT,
-        days INTEGER[] NOT NULL
+        days INTEGER[] NOT NULL,
+        interval_value INTEGER DEFAULT 0,
+        interval_type VARCHAR(20) DEFAULT 'week',
+        start_date DATE DEFAULT CURRENT_DATE,
+        end_date DATE
       )
     `);
     console.log('✅ Таблиця reminders створена або вже існує');
@@ -49,10 +53,10 @@ async function initDatabase() {
     const result = await pool.query('SELECT COUNT(*) FROM reminders');
     if (parseInt(result.rows[0].count) === 0) {
       await pool.query(`
-        INSERT INTO reminders (id, time, message, days) VALUES
-        ('1', '10:00', '🏋️ Час зарядки! Встань і розімнися 💪', ARRAY[1,2,3,4,5]),
-        ('2', '13:00', '🧘 Пора розім''ятись! Зроби кілька вправ 🤸', ARRAY[1,2,3,4,5]),
-        ('3', '16:00', '🏃 Перерва на зарядку! Твоє тіло скаже дякую 🙏', ARRAY[1,2,3,4,5])
+        INSERT INTO reminders (id, time, message, days, interval_value, interval_type, start_date, end_date) VALUES
+        ('1', '10:00', '🏋️ Час зарядки! Встань і розімнися 💪', ARRAY[1,2,3,4,5], 0, 'week', CURRENT_DATE, NULL),
+        ('2', '13:00', '🧘 Пора розім''ятись! Зроби кілька вправ 🤸', ARRAY[1,2,3,4,5], 0, 'week', CURRENT_DATE, NULL),
+        ('3', '16:00', '🏃 Перерва на зарядку! Твоє тіло скаже дякую 🙏', ARRAY[1,2,3,4,5], 0, 'week', CURRENT_DATE, NULL)
       `);
       console.log('✅ Дефолтні нагадування додані');
     }
@@ -77,7 +81,11 @@ async function loadReminders() {
         id: row.id,
         time: row.time,
         message: row.message,
-        days: row.days
+        days: row.days,
+        interval_value: row.interval_value || 0,
+        interval_type: row.interval_type || 'week',
+        start_date: row.start_date || new Date().toISOString().split('T')[0],
+        end_date: row.end_date
       }));
     } catch (error) {
       console.error('❌ Помилка завантаження з бази:', error);
@@ -89,9 +97,9 @@ async function loadReminders() {
       return JSON.parse(data);
     } catch {
       const defaults = [
-        { id: '1', time: '10:00', message: defaultMessages[0], days: [1, 2, 3, 4, 5] },
-        { id: '2', time: '13:00', message: defaultMessages[1], days: [1, 2, 3, 4, 5] },
-        { id: '3', time: '16:00', message: defaultMessages[2], days: [1, 2, 3, 4, 5] },
+        { id: '1', time: '10:00', message: defaultMessages[0], days: [1, 2, 3, 4, 5], interval_value: 0, interval_type: 'week', start_date: new Date().toISOString().split('T')[0], end_date: null },
+        { id: '2', time: '13:00', message: defaultMessages[1], days: [1, 2, 3, 4, 5], interval_value: 0, interval_type: 'week', start_date: new Date().toISOString().split('T')[0], end_date: null },
+        { id: '3', time: '16:00', message: defaultMessages[2], days: [1, 2, 3, 4, 5], interval_value: 0, interval_type: 'week', start_date: new Date().toISOString().split('T')[0], end_date: null },
       ];
       await saveReminders(defaults);
       return defaults;
@@ -105,8 +113,8 @@ async function saveReminders(reminders) {
       await pool.query('DELETE FROM reminders');
       for (const reminder of reminders) {
         await pool.query(
-          'INSERT INTO reminders (id, time, message, days) VALUES ($1, $2, $3, $4)',
-          [reminder.id, reminder.time, reminder.message, reminder.days]
+          'INSERT INTO reminders (id, time, message, days, interval_value, interval_type, start_date, end_date) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+          [reminder.id, reminder.time, reminder.message, reminder.days, reminder.interval_value || 0, reminder.interval_type || 'week', reminder.start_date || new Date().toISOString().split('T')[0], reminder.end_date || null]
         );
       }
     } catch (error) {
@@ -147,9 +155,18 @@ async function sendTelegramMessage(text) {
 async function updateCronSchedule() {
   const reminders = await loadReminders();
 
+  // Не створювати локальні jobs якщо використовується cron-job.org
+  const useCronJob = process.env.USE_CRON_JOB === 'true' || process.env.RENDER;
+  if (useCronJob) {
+    console.log('⏰ Використовуємо cron-job.org, локальні jobs не створюються');
+    return;
+  }
+
   // Зупинити всі існуючі jobs
   if (currentJobs) {
-    currentJobs.forEach(job => job.cancel());
+    currentJobs.forEach(job => {
+      if (job) job.cancel();
+    });
   }
   currentJobs = [];
 
@@ -177,7 +194,7 @@ async function updateCronSchedule() {
 
 let currentJobs = [];
 
-// Зберігання часу останнього відправлення для запобігання дублюванню
+// Зберігання часу останнього відправлення для запобігання дублюванню та інтервалів
 const lastSentTimes = new Map();
 
 // Express сервер
@@ -199,14 +216,18 @@ app.get('/api/reminders', async (req, res) => {
 
 // API: додати нагадування
 app.post('/api/reminders', async (req, res) => {
-  const { time, message, days } = req.body;
+  const { time, message, days, interval_value, interval_type, start_date, end_date } = req.body;
   const reminders = await loadReminders();
 
   const newReminder = {
     id: Date.now().toString(),
     time,
     message: message || defaultMessages[Math.floor(Math.random() * defaultMessages.length)],
-    days: days || [1, 2, 3, 4, 5]
+    days: days || [1, 2, 3, 4, 5],
+    interval_value: interval_value || 0,
+    interval_type: interval_type || 'week',
+    start_date: start_date || new Date().toISOString().split('T')[0],
+    end_date: end_date || null
   };
 
   reminders.push(newReminder);
@@ -231,7 +252,7 @@ app.delete('/api/reminders/:id', async (req, res) => {
 // API: оновити нагадування
 app.put('/api/reminders/:id', async (req, res) => {
   const { id } = req.params;
-  const { time, message, days } = req.body;
+  const { time, message, days, interval_value, interval_type, start_date, end_date } = req.body;
   const reminders = await loadReminders();
 
   const index = reminders.findIndex(r => r.id === id);
@@ -244,7 +265,11 @@ app.put('/api/reminders/:id', async (req, res) => {
     ...reminders[index],
     time: time || reminders[index].time,
     message: message || reminders[index].message,
-    days: days || reminders[index].days
+    days: days || reminders[index].days,
+    interval_value: interval_value !== undefined ? interval_value : reminders[index].interval_value,
+    interval_type: interval_type || reminders[index].interval_type,
+    start_date: start_date || reminders[index].start_date,
+    end_date: end_date !== undefined ? end_date : reminders[index].end_date
   };
 
   await saveReminders(reminders);
@@ -266,21 +291,71 @@ app.get('/send-reminder', async (req, res) => {
   const kievDate = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Kyiv' }));
   const currentDay = kievDate.getDay() || 7;
 
-  console.log(`🔍 [Cron trigger] Перевірка: час=${currentTime}, день=${currentDay}, нагадувань=${reminders.length}`);
+  // Поточна дата в форматі YYYY-MM-DD
+  const currentDate = kievDate.toISOString().split('T')[0];
 
-  const matchingReminders = reminders.filter(r =>
-    r.time === currentTime && r.days.includes(currentDay)
-  );
+  console.log(`🔍 [Cron trigger] Перевірка: час=${currentTime}, день=${currentDay}, дата=${currentDate}, нагадувань=${reminders.length}`);
+
+  const matchingReminders = reminders.filter(r => {
+    // Перевірка часу та дня тижня
+    if (r.time !== currentTime || !r.days.includes(currentDay)) {
+      return false;
+    }
+
+    // Перевірка start_date
+    if (r.start_date && currentDate < r.start_date) {
+      console.log(`⏭️ [Cron trigger] Пропускаю (${r.time}): ще не настав start_date (${r.start_date})`);
+      return false;
+    }
+
+    // Перевірка end_date
+    if (r.end_date && currentDate > r.end_date) {
+      console.log(`⏭️ [Cron trigger] Пропускаю (${r.time}): вже минув end_date (${r.end_date})`);
+      return false;
+    }
+
+    // Перевірка інтервалу
+    if (r.interval_value > 0) {
+      const key = `${r.id}`;
+      const lastSent = lastSentTimes.get(key);
+
+      if (lastSent) {
+        const lastSentDate = new Date(lastSent);
+        let intervalMs;
+
+        switch (r.interval_type) {
+          case 'week':
+            intervalMs = r.interval_value * 7 * 24 * 60 * 60 * 1000;
+            break;
+          case 'month':
+            intervalMs = r.interval_value * 30 * 24 * 60 * 60 * 1000;
+            break;
+          case 'year':
+            intervalMs = r.interval_value * 365 * 24 * 60 * 60 * 1000;
+            break;
+          default:
+            intervalMs = r.interval_value * 7 * 24 * 60 * 60 * 1000;
+        }
+
+        if (now - lastSentDate < intervalMs) {
+          console.log(`⏭️ [Cron trigger] Пропускаю (${r.time}): інтервал ще не минув (${r.interval_value} ${r.interval_type})`);
+          return false;
+        }
+      }
+    }
+
+    return true;
+  });
 
   console.log(`🔍 [Cron trigger] Знайдено співпадінь: ${matchingReminders.length}`);
 
   if (matchingReminders.length > 0) {
     let sentCount = 0;
     for (const reminder of matchingReminders) {
-      const key = `${reminder.time}-${currentDay}`;
+      const key = `${reminder.id}`;
       const lastSent = lastSentTimes.get(key);
 
-      // Перевірка: чи минула хоча б хвилина з останнього відправлення
+      // Перевірка: чи минула хоча б хвилина з останнього відправлення (для запобігання дублюванню)
       if (lastSent && (now - lastSent) < 60000) {
         console.log(`⏭️ [Cron trigger] Пропускаю (${reminder.time}): вже відправлено ${(now - lastSent) / 1000}с тому`);
         continue;
