@@ -339,14 +339,31 @@
 </head>
 
 <body>
-  <div class="container">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
-      <h1 style="margin: 0;">🔔 Нагадування</h1>
-      <div style="display: flex; gap: 10px;">
-        <button onclick="window.location.href='/logout'"
-          style="font-size: 14px; padding: 8px 16px; border-radius: 8px; background: #999;">Вийти</button>
+  <div
+    style="display: flex; justify-content: space-between; align-items: center; padding: 20px; max-width: 900px; margin: 0 auto;">
+    <h1 style="margin: 0;">🔔 Нагадування</h1>
+    <div style="position: relative;">
+      <button id="profileBtn" onclick="toggleProfileMenu()"
+        style="background: none; border: none; padding: 0; cursor: pointer;">
+        <div id="userAvatar" style="display: none;">
+          <img id="avatarImg" src="" alt="Avatar" style="width: 40px; height: 40px; border-radius: 50%;">
+        </div>
+        <div id="defaultAvatar"
+          style="width: 40px; height: 40px; border-radius: 50%; background: #1a73e8; display: flex; align-items: center; justify-content: center; color: white; font-size: 18px;">
+          👤
+        </div>
+      </button>
+      <div id="profileMenu"
+        style="display: none; position: absolute; right: 0; top: 50px; background: white; border: 1px solid #dadce0; border-radius: 8px; box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2); min-width: 200px; z-index: 1000;">
+        <div style="padding: 8px;">
+          <button onclick="window.location.href='/logout'"
+            style="width: 100%; background: none; color: #d93025; border: none; padding: 8px 16px; text-align: left; cursor: pointer; font-size: 14px;">Вийти</button>
+        </div>
       </div>
     </div>
+  </div>
+
+  <div class="container">
 
     <div id="reminders-tab">
       <div class="tabs">
@@ -520,11 +537,55 @@
       </div>
     </div>
 
+    <div class="modal" id="deleteModal">
+      <div class="modal-content">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+          <h2 style="margin: 0;">Підтвердження видалення</h2>
+          <button onclick="closeDeleteModal()"
+            style="background: none; border: none; font-size: 24px; cursor: pointer; padding: 0;">×</button>
+        </div>
+        <p style="margin-bottom: 20px; color: #666;">Ви дійсно хочете видалити це нагадування?</p>
+        <div class="modal-buttons">
+          <button class="cancel-btn" onclick="closeDeleteModal()">Скасувати</button>
+          <button class="delete-btn" onclick="confirmDelete()">Видалити</button>
+        </div>
+      </div>
+    </div>
+
     <script>
-      // Ініціалізація поля startDate з сьогоднішньою датою
+      // Ініціалізація поля startDate з сьогоднішньою датою та завантаження аватарки
       document.addEventListener('DOMContentLoaded', () => {
         const today = new Date().toISOString().split('T')[0];
         document.getElementById('startDate').value = today;
+
+        // Завантажити аватарку користувача
+        fetch('/api/user')
+          .then(response => response.json())
+          .then(user => {
+            if (user && user.photos && user.photos.length > 0) {
+              const avatarDiv = document.getElementById('userAvatar');
+              const avatarImg = document.getElementById('avatarImg');
+              const defaultAvatar = document.getElementById('defaultAvatar');
+              avatarImg.src = user.photos[0].value;
+              avatarDiv.style.display = 'block';
+              defaultAvatar.style.display = 'none';
+            }
+          })
+          .catch(error => console.error('Помилка завантаження аватарки:', error));
+      });
+
+      function toggleProfileMenu() {
+        const menu = document.getElementById('profileMenu');
+        menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+      }
+
+      // Закрити меню при натисканні поза ним
+      document.addEventListener('click', function (e) {
+        const profileBtn = document.getElementById('profileBtn');
+        const profileMenu = document.getElementById('profileMenu');
+        if (!profileBtn.contains(e.target) && !profileMenu.contains(e.target)) {
+          profileMenu.style.display = 'none';
+        }
       });
 
       let currentFilter = 'telegram';
@@ -578,6 +639,12 @@
       document.getElementById('addModal').addEventListener('click', function (e) {
         if (e.target === this) {
           closeAddModal();
+        }
+      });
+
+      document.getElementById('deleteModal').addEventListener('click', function (e) {
+        if (e.target === this) {
+          closeDeleteModal();
         }
       });
 
@@ -664,13 +731,80 @@
         const currentTotalMinutes = currentHour * 60 + currentMinute;
         const currentDay = kievTime.getDay() || 7; // 1=Пн, 7=Нд
 
-        // Сортування за новизною (id) та актуальністю
+        // Сортування за часом наступного спрацювання
         const sortedReminders = [...filteredReminders].sort((a, b) => {
-          // Спочатку сортуємо за id (новіші перші)
-          const idA = parseInt(a.id) || 0;
-          const idB = parseInt(b.id) || 0;
-          return idB - idA;
+          const getNextOccurrence = (reminder) => {
+            const times = reminder.times || (reminder.time ? [reminder.time] : ['10:00']);
+            const days = reminder.days || [1, 2, 3, 4, 5];
+            const startDate = reminder.start_date || new Date().toISOString().split('T')[0];
+            const endDate = reminder.end_date;
+
+            const now = new Date();
+            const kievTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Kyiv' }));
+            const currentDay = kievTime.getDay() || 7;
+            const currentDateStr = kievTime.toISOString().split('T')[0];
+
+            let nextOccurrence = null;
+
+            for (let time of times) {
+              const [hours, minutes] = time.split(':').map(Number);
+
+              // Перевіряємо кожен день вперед на 2 тижні
+              for (let i = 0; i < 14; i++) {
+                const checkDate = new Date(kievTime);
+                checkDate.setDate(checkDate.getDate() + i);
+                const checkDay = checkDate.getDay() || 7;
+                const checkDateStr = checkDate.toISOString().split('T')[0];
+
+                // Перевірка дня тижня
+                if (!days.includes(checkDay)) continue;
+
+                // Перевірка start_date та end_date
+                if (checkDateStr < startDate) continue;
+                if (endDate && checkDateStr > endDate) continue;
+
+                // Створюємо дату для перевірки
+                const occurrenceDate = new Date(checkDate);
+                occurrenceDate.setHours(hours, minutes, 0, 0);
+
+                // Якщо це вже минуло сьогодні, пропускаємо
+                if (i === 0 && occurrenceDate <= kievTime) continue;
+
+                if (!nextOccurrence || occurrenceDate < nextOccurrence) {
+                  nextOccurrence = occurrenceDate;
+                }
+              }
+            }
+
+            return nextOccurrence || new Date(8640000000000000); // Якщо немає наступного, ставимо в кінець
+          };
+
+          const nextA = getNextOccurrence(a);
+          const nextB = getNextOccurrence(b);
+
+          // Сортуємо за часом наступного спрацювання (найближчі перші)
+          return nextA - nextB;
         });
+
+
+        // Визначаємо початок і кінець поточного тижня
+        const getWeekBounds = () => {
+          const now = new Date();
+          const kievTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Kyiv' }));
+          const currentDay = kievTime.getDay() || 7;
+
+          const weekStart = new Date(kievTime);
+          weekStart.setDate(kievTime.getDate() - (currentDay - 1));
+          weekStart.setHours(0, 0, 0, 0);
+
+          const weekEnd = new Date(kievTime);
+          weekEnd.setDate(kievTime.getDate() + (7 - currentDay));
+          weekEnd.setHours(23, 59, 59, 999);
+
+          return { weekStart, weekEnd };
+        };
+
+        const { weekStart, weekEnd } = getWeekBounds();
 
         container.innerHTML = sortedReminders.map(r => {
           const times = r.times || (r.time ? [r.time] : ['10:00']);
@@ -682,6 +816,21 @@
             return diff >= 0 && diff <= 60;
           });
 
+          const startDate = r.start_date || new Date().toISOString().split('T')[0];
+          const startDateObj = new Date(startDate);
+          const now = new Date();
+          const kievTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Kyiv' }));
+
+          // Перевіряємо чи start_date більше ніж на 7 днів від зараз
+          const daysUntilStart = Math.ceil((startDateObj - kievTime) / (1000 * 60 * 60 * 24));
+          const showDate = daysUntilStart > 7;
+
+          const startDateStr = startDateObj.toLocaleDateString('uk-UA', {
+            day: 'numeric',
+            month: 'numeric',
+            year: 'numeric'
+          });
+
           return `
           <div class="reminder-item ${isSoon ? 'soon' : ''}">
             <div>
@@ -690,9 +839,10 @@
               ${r.type === 'webhook' && r.target_url ? `<div class="reminder-days" style="font-size: 11px;">Target: ${r.target_url}</div>` : ''}
               <div class="reminder-days">${(r.days || [1, 2, 3, 4, 5]).map(d => dayNames[d]).join(', ')}</div>
             </div>
-            <div>
-              <button class="edit-btn" onclick="openEditModal('${r.id}')">Редагувати</button>
-              <button class="delete-btn" onclick="deleteReminder('${r.id}')">Видалити</button>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              ${showDate ? `<span style="background: #ff9800; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px;">📅 ${startDateStr}</span>` : ''}
+              <button class="edit-btn" onclick="openEditModal('${r.id}')" style="padding: 8px 12px;">✏️</button>
+              <button class="delete-btn" onclick="deleteReminder('${r.id}')" style="padding: 8px 12px;">🗑️</button>
             </div>
           </div>
         `;
@@ -739,9 +889,28 @@
         loadReminders();
       }
 
+      let deleteId = null;
+
+      function openDeleteModal(id) {
+        deleteId = id;
+        document.getElementById('deleteModal').classList.add('active');
+      }
+
+      function closeDeleteModal() {
+        deleteId = null;
+        document.getElementById('deleteModal').classList.remove('active');
+      }
+
+      async function confirmDelete() {
+        if (deleteId) {
+          await fetch(`/api/reminders/${deleteId}`, { method: 'DELETE' });
+          closeDeleteModal();
+          loadReminders();
+        }
+      }
+
       async function deleteReminder(id) {
-        await fetch(`/api/reminders/${id}`, { method: 'DELETE' });
-        loadReminders();
+        openDeleteModal(id);
       }
 
       let editingId = null;

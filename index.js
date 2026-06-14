@@ -449,6 +449,15 @@ app.put('/api/reminders/:id', requireAuth, async (req, res) => {
   res.json(reminders[index]);
 });
 
+// API: отримати дані користувача
+app.get('/api/user', (req, res) => {
+  if (req.isAuthenticated() && req.user) {
+    res.json(req.user);
+  } else {
+    res.status(401).json({ error: 'Not authenticated' });
+  }
+});
+
 // Endpoint для cron-job.org
 app.get('/send-reminder', async (req, res) => {
   const reminders = await loadReminders();
