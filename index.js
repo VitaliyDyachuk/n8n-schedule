@@ -10,11 +10,17 @@ const express = require('express');
 const { Pool } = require('pg');
 const fs = require('fs').promises;
 const path = require('path');
+const passport = require('passport');
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const session = require('express-session');
 require('dotenv').config();
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const CHAT_ID = process.env.CHAT_ID;
 const DATABASE_URL = process.env.DATABASE_URL;
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+const SESSION_SECRET = process.env.SESSION_SECRET || 'your-secret-key-change-this-in-production';
 
 if (!BOT_TOKEN || !CHAT_ID) {
   console.error('❌ Заповніть BOT_TOKEN та CHAT_ID в .env');
@@ -25,6 +31,23 @@ if (!BOT_TOKEN || !CHAT_ID) {
 // PostgreSQL connection
 const pool = new Pool({
   connectionString: DATABASE_URL,
+});
+
+// Passport configuration
+passport.use(new GoogleStrategy({
+  clientID: GOOGLE_CLIENT_ID,
+  clientSecret: GOOGLE_CLIENT_SECRET,
+  callbackURL: '/auth/google/callback'
+}, (accessToken, refreshToken, profile, done) => {
+  return done(null, profile);
+}));
+
+passport.serializeUser((user, done) => {
+  done(null, user);
+});
+
+passport.deserializeUser((user, done) => {
+  done(null, user);
 });
 
 // Fallback to JSON file if no DATABASE_URL
@@ -209,18 +232,65 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.get('/', (req, res) => {
+// Session middleware
+app.use(session({
+  secret: SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: { secure: process.env.NODE_ENV === 'production' }
+}));
+
+app.use(passport.initialize());
+app.use(passport.session());
+
+// Authentication middleware - only allow vitala8896@gmail.com
+const requireAuth = (req, res, next) => {
+  if (!req.isAuthenticated()) {
+    return res.redirect('/auth/google');
+  }
+
+  if (req.user.emails && req.user.emails[0] && req.user.emails[0].value === 'vitala8896@gmail.com') {
+    return next();
+  }
+
+  return res.redirect('/access-denied');
+};
+
+app.get('/', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// Access denied page
+app.get('/access-denied', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'access-denied.html'));
+});
+
+// Google OAuth routes
+app.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+
+app.get('/auth/google/callback',
+  passport.authenticate('google', { failureRedirect: '/access-denied' }),
+  (req, res) => {
+    res.redirect('/');
+  }
+);
+
+// Logout route
+app.get('/logout', (req, res) => {
+  req.logout((err) => {
+    if (err) { return next(err); }
+    res.redirect('/auth/google');
+  });
+});
+
 // API: отримати всі нагадування
-app.get('/api/reminders', async (req, res) => {
+app.get('/api/reminders', requireAuth, async (req, res) => {
   const reminders = await loadReminders();
   res.json(reminders);
 });
 
 // API: додати нагадування
-app.post('/api/reminders', async (req, res) => {
+app.post('/api/reminders', requireAuth, async (req, res) => {
   const { times, message, days, interval_value, interval_type, start_date, end_date } = req.body;
   const reminders = await loadReminders();
 
@@ -243,7 +313,7 @@ app.post('/api/reminders', async (req, res) => {
 });
 
 // API: видалити нагадування
-app.delete('/api/reminders/:id', async (req, res) => {
+app.delete('/api/reminders/:id', requireAuth, async (req, res) => {
   const { id } = req.params;
   const reminders = await loadReminders();
   const filtered = reminders.filter(r => r.id !== id);
@@ -255,7 +325,7 @@ app.delete('/api/reminders/:id', async (req, res) => {
 });
 
 // API: оновити нагадування
-app.put('/api/reminders/:id', async (req, res) => {
+app.put('/api/reminders/:id', requireAuth, async (req, res) => {
   const { id } = req.params;
   const { times, message, days, interval_value, interval_type, start_date, end_date } = req.body;
   const reminders = await loadReminders();
