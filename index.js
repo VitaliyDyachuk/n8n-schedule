@@ -286,7 +286,12 @@ app.get('/auth/google/callback',
   passport.authenticate('google', { failureRedirect: '/access-denied' }),
   (req, res) => {
     console.log('Google OAuth callback successful, user:', req.user?.emails?.[0]?.value);
-    res.redirect('/');
+    req.session.save((err) => {
+      if (err) {
+        console.error('Session save error:', err);
+      }
+      res.redirect('/');
+    });
   }
 );
 
