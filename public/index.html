@@ -317,275 +317,324 @@
       <div style="display: flex; gap: 10px;">
         <button onclick="window.location.href='/logout'"
           style="font-size: 14px; padding: 8px 16px; border-radius: 8px; background: #999;">Вийти</button>
-        <button id="addToggleBtn" onclick="toggleAddForm()"
-          style="font-size: 24px; padding: 8px 16px; width: 50px; height: 50px; border-radius: 50%;">+</button>
       </div>
     </div>
 
-    <div class="form" id="addForm" style="display: none;">
-      <div class="form-group">
-        <label>Час:</label>
-        <div class="times-container" id="timesContainer">
-          <div class="time-input-group">
-            <input type="time" class="time-input" required>
-            <button type="button" class="remove-time-btn" onclick="removeTimeInput(this)"
-              style="display: none;">×</button>
-          </div>
-        </div>
-        <button type="button" class="add-time-btn" onclick="addTimeInput()">+ Додати час</button>
+    <div id="reminders-tab">
+      <div style="display: flex; justify-content: flex-end; margin-bottom: 20px;">
+        <button onclick="openAddModal()" style="font-size: 16px; padding: 12px 24px; border-radius: 8px;">+ Додати
+          нагадування</button>
       </div>
-      <div class="form-group">
-        <label>Повідомлення:</label>
-        <input type="text" id="message" placeholder="🏋️ Час зарядки! Встань і розімнися 💪">
+
+      <div class="reminders" id="reminders">
+        <div class="empty">Немає нагадувань</div>
       </div>
-      <div class="form-group">
-        <label>Дні тижня:</label>
-        <div class="days-selector">
-          <label><input type="checkbox" value="1" checked> Пн</label>
-          <label><input type="checkbox" value="2" checked> Вт</label>
-          <label><input type="checkbox" value="3" checked> Ср</label>
-          <label><input type="checkbox" value="4" checked> Чт</label>
-          <label><input type="checkbox" value="5" checked> Пт</label>
-          <label><input type="checkbox" value="6"> Сб</label>
-          <label><input type="checkbox" value="7"> Нд</label>
-        </div>
-      </div>
-      <div class="form-group">
-        <label>Інтервал повторення (0 = щотижня):</label>
-        <div class="interval-group">
-          <input type="number" id="intervalValue" min="0" value="1" placeholder="1">
-          <select id="intervalType">
-            <option value="week">тижнів</option>
-            <option value="month">місяців</option>
-            <option value="year">років</option>
-          </select>
-        </div>
-      </div>
-      <div class="form-group">
-        <label>Початок дії:</label>
-        <input type="date" id="startDate">
-      </div>
-      <div class="form-group">
-        <label>Кінець дії (пусто = безкінечно):</label>
-        <input type="date" id="endDate">
-      </div>
-      <button onclick="addReminder()">Додати нагадування</button>
-      <button onclick="closeAddForm()" style="background: #999; margin-left: 10px;">Скасувати</button>
     </div>
 
-    <div class="reminders" id="reminders">
-      <div class="empty">Немає нагадувань</div>
-    </div>
-  </div>
-
-  <div class="modal" id="editModal">
-    <div class="modal-content">
-      <h2>Редагувати нагадування</h2>
-      <div class="form">
-        <div class="form-group">
-          <label>Час:</label>
-          <div class="times-container" id="editTimesContainer">
-            <div class="time-input-group">
-              <input type="time" class="edit-time-input" required>
-              <button type="button" class="remove-time-btn" onclick="removeEditTimeInput(this)"
-                style="display: none;">×</button>
-            </div>
-          </div>
-          <button type="button" class="add-time-btn" onclick="addEditTimeInput()">+ Додати час</button>
-        </div>
-        <div class="form-group">
-          <label>Повідомлення:</label>
-          <input type="text" id="editMessage" placeholder="🏋️ Час зарядки! Встань і розімнися 💪">
-        </div>
-        <div class="form-group">
-          <label>Дні тижня:</label>
-          <div class="days-selector" id="editDaysSelector">
-            <label><input type="checkbox" value="1"> Пн</label>
-            <label><input type="checkbox" value="2"> Вт</label>
-            <label><input type="checkbox" value="3"> Ср</label>
-            <label><input type="checkbox" value="4"> Чт</label>
-            <label><input type="checkbox" value="5"> Пт</label>
-            <label><input type="checkbox" value="6"> Сб</label>
-            <label><input type="checkbox" value="7"> Нд</label>
-          </div>
-        </div>
-        <div class="form-group">
-          <label>Інтервал повторення (0 = щотижня):</label>
-          <div class="interval-group">
-            <input type="number" id="editIntervalValue" min="0" value="1" placeholder="1">
-            <select id="editIntervalType">
-              <option value="week">тижнів</option>
-              <option value="month">місяців</option>
-              <option value="year">років</option>
+    <div class="modal" id="addModal">
+      <div class="modal-content">
+        <h2>Додати нагадування</h2>
+        <div class="form">
+          <div class="form-group">
+            <label>Тип нагадування:</label>
+            <select id="reminderType" onchange="toggleWebhookFields()"
+              style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px;">
+              <option value="telegram">Telegram повідомлення</option>
+              <option value="webhook">Webhook (відправка команди на інший сайт)</option>
             </select>
           </div>
-        </div>
-        <div class="form-group">
-          <label>Початок дії:</label>
-          <input type="date" id="editStartDate">
-        </div>
-        <div class="form-group">
-          <label>Кінець дії (пусто = безкінечно):</label>
-          <input type="date" id="editEndDate">
-        </div>
-        <div class="modal-buttons">
-          <button class="cancel-btn" onclick="closeEditModal()">Скасувати</button>
-          <button onclick="saveEdit()">Зберегти</button>
+          <div class="form-group">
+            <label>Час:</label>
+            <div class="times-container" id="timesContainer">
+              <div class="time-input-group">
+                <input type="time" class="time-input" required>
+                <button type="button" class="remove-time-btn" onclick="removeTimeInput(this)"
+                  style="display: none;">×</button>
+              </div>
+            </div>
+            <button type="button" class="add-time-btn" onclick="addTimeInput()">+ Додати час</button>
+          </div>
+          <div class="form-group" id="messageGroup">
+            <label>Повідомлення:</label>
+            <input type="text" id="message" placeholder="🏋️ Час зарядки! Встань і розімнися 💪">
+          </div>
+          <div class="form-group" id="webhookFields" style="display: none;">
+            <label>Webhook URL (куди відправляти команду):</label>
+            <input type="text" id="webhookUrl" placeholder="https://example.com/webhook">
+          </div>
+          <div class="form-group" id="webhookFields2" style="display: none;">
+            <label>Target URL (куди інший сайт має зайти):</label>
+            <input type="text" id="targetUrl" placeholder="https://target-site.com/api">
+          </div>
+          <div class="form-group" id="webhookFields3" style="display: none;">
+            <label>Кількість листів:</label>
+            <input type="number" id="mailCount" min="1" value="1" placeholder="1">
+          </div>
+          <div class="form-group">
+            <label>Дні тижня:</label>
+            <div class="days-selector">
+              <label><input type="checkbox" value="1" checked> Пн</label>
+              <label><input type="checkbox" value="2" checked> Вт</label>
+              <label><input type="checkbox" value="3" checked> Ср</label>
+              <label><input type="checkbox" value="4" checked> Чт</label>
+              <label><input type="checkbox" value="5" checked> Пт</label>
+              <label><input type="checkbox" value="6"> Сб</label>
+              <label><input type="checkbox" value="7"> Нд</label>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Інтервал повторення (0 = щотижня):</label>
+            <div class="interval-group">
+              <input type="number" id="intervalValue" min="0" value="1" placeholder="1">
+              <select id="intervalType">
+                <option value="week">тижнів</option>
+                <option value="month">місяців</option>
+                <option value="year">років</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Початок дії:</label>
+            <input type="date" id="startDate">
+          </div>
+          <div class="form-group">
+            <label>Кінець дії (пусто = безкінечно):</label>
+            <input type="date" id="endDate">
+          </div>
+          <div class="modal-buttons">
+            <button class="cancel-btn" onclick="closeAddModal()">Скасувати</button>
+            <button onclick="addReminder()">Додати нагадування</button>
+          </div>
         </div>
       </div>
     </div>
-  </div>
 
-  <script>
-    // Ініціалізація поля startDate з сьогоднішньою датою
-    document.addEventListener('DOMContentLoaded', () => {
-      const today = new Date().toISOString().split('T')[0];
-      document.getElementById('startDate').value = today;
-    });
+    <div class="modal" id="editModal">
+      <div class="modal-content">
+        <h2>Редагувати нагадування</h2>
+        <div class="form">
+          <div class="form-group">
+            <label>Тип нагадування:</label>
+            <select id="editReminderType" onchange="toggleEditWebhookFields()"
+              style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px;">
+              <option value="telegram">Telegram повідомлення</option>
+              <option value="webhook">Webhook (відправка команди на інший сайт)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Час:</label>
+            <div class="times-container" id="editTimesContainer">
+              <div class="time-input-group">
+                <input type="time" class="edit-time-input" required>
+                <button type="button" class="remove-time-btn" onclick="removeEditTimeInput(this)"
+                  style="display: none;">×</button>
+              </div>
+            </div>
+            <button type="button" class="add-time-btn" onclick="addEditTimeInput()">+ Додати час</button>
+          </div>
+          <div class="form-group" id="editMessageGroup">
+            <label>Повідомлення:</label>
+            <input type="text" id="editMessage" placeholder="🏋️ Час зарядки! Встань і розімнися 💪">
+          </div>
+          <div class="form-group" id="editWebhookFields" style="display: none;">
+            <label>Webhook URL (куди відправляти команду):</label>
+            <input type="text" id="editWebhookUrl" placeholder="https://example.com/webhook">
+          </div>
+          <div class="form-group" id="editWebhookFields2" style="display: none;">
+            <label>Target URL (куди інший сайт має зайти):</label>
+            <input type="text" id="editTargetUrl" placeholder="https://target-site.com/api">
+          </div>
+          <div class="form-group" id="editWebhookFields3" style="display: none;">
+            <label>Кількість листів:</label>
+            <input type="number" id="editMailCount" min="1" value="1" placeholder="1">
+          </div>
+          <div class="form-group">
+            <label>Дні тижня:</label>
+            <div class="days-selector" id="editDaysSelector">
+              <label><input type="checkbox" value="1"> Пн</label>
+              <label><input type="checkbox" value="2"> Вт</label>
+              <label><input type="checkbox" value="3"> Ср</label>
+              <label><input type="checkbox" value="4"> Чт</label>
+              <label><input type="checkbox" value="5"> Пт</label>
+              <label><input type="checkbox" value="6"> Сб</label>
+              <label><input type="checkbox" value="7"> Нд</label>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Інтервал повторення (0 = щотижня):</label>
+            <div class="interval-group">
+              <input type="number" id="editIntervalValue" min="0" value="1" placeholder="1">
+              <select id="editIntervalType">
+                <option value="week">тижнів</option>
+                <option value="month">місяців</option>
+                <option value="year">років</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Початок дії:</label>
+            <input type="date" id="editStartDate">
+          </div>
+          <div class="form-group">
+            <label>Кінець дії (пусто = безкінечно):</label>
+            <input type="date" id="editEndDate">
+          </div>
+          <div class="modal-buttons">
+            <button class="cancel-btn" onclick="closeEditModal()">Скасувати</button>
+            <button onclick="saveEdit()">Зберегти</button>
+          </div>
+        </div>
+      </div>
+    </div>
 
-    function toggleAddForm() {
-      const form = document.getElementById('addForm');
-      const btn = document.getElementById('addToggleBtn');
-      if (form.style.display === 'block') {
-        form.style.display = 'none';
-        btn.textContent = '+';
-      } else {
-        form.style.display = 'block';
-        btn.textContent = '-';
+    <script>
+      // Ініціалізація поля startDate з сьогоднішньою датою
+      document.addEventListener('DOMContentLoaded', () => {
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('startDate').value = today;
+      });
+
+      function openAddModal() {
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('startDate').value = today;
+        document.getElementById('addModal').classList.add('active');
       }
-    }
 
-    function openAddModal() {
-      document.getElementById('addForm').style.display = 'block';
-    }
+      function closeAddModal() {
+        document.getElementById('addModal').classList.remove('active');
+        // Очищуємо форму
+        document.querySelectorAll('.time-input').forEach(input => input.value = '');
+        document.getElementById('message').value = '';
+        document.getElementById('webhookUrl').value = '';
+        document.getElementById('targetUrl').value = '';
+        document.getElementById('mailCount').value = '1';
+        document.getElementById('reminderType').value = 'telegram';
+        toggleWebhookFields();
+      }
 
-    function closeAddForm() {
-      document.getElementById('addForm').style.display = 'none';
-      document.getElementById('addToggleBtn').textContent = '+';
-    }
-
-    function addTimeInput() {
-      const container = document.getElementById('timesContainer');
-      const newGroup = document.createElement('div');
-      newGroup.className = 'time-input-group';
-      newGroup.innerHTML = `
+      function addTimeInput() {
+        const container = document.getElementById('timesContainer');
+        const newGroup = document.createElement('div');
+        newGroup.className = 'time-input-group';
+        newGroup.innerHTML = `
         <input type="time" class="time-input" required>
         <button type="button" class="remove-time-btn" onclick="removeTimeInput(this)">×</button>
       `;
-      container.appendChild(newGroup);
-      updateRemoveButtons();
-    }
-
-    function removeTimeInput(button) {
-      const container = document.getElementById('timesContainer');
-      if (container.children.length > 1) {
-        button.parentElement.remove();
+        container.appendChild(newGroup);
         updateRemoveButtons();
       }
-    }
 
-    function updateRemoveButtons() {
-      const container = document.getElementById('timesContainer');
-      const buttons = container.querySelectorAll('.remove-time-btn');
-      buttons.forEach((btn, index) => {
-        btn.style.display = container.children.length > 1 ? 'block' : 'none';
-      });
-    }
+      function removeTimeInput(button) {
+        const container = document.getElementById('timesContainer');
+        if (container.children.length > 1) {
+          button.parentElement.remove();
+          updateRemoveButtons();
+        }
+      }
 
-    function addEditTimeInput() {
-      const container = document.getElementById('editTimesContainer');
-      const newGroup = document.createElement('div');
-      newGroup.className = 'time-input-group';
-      newGroup.innerHTML = `
+      function updateRemoveButtons() {
+        const container = document.getElementById('timesContainer');
+        const buttons = container.querySelectorAll('.remove-time-btn');
+        buttons.forEach((btn, index) => {
+          btn.style.display = container.children.length > 1 ? 'block' : 'none';
+        });
+      }
+
+      function addEditTimeInput() {
+        const container = document.getElementById('editTimesContainer');
+        const newGroup = document.createElement('div');
+        newGroup.className = 'time-input-group';
+        newGroup.innerHTML = `
         <input type="time" class="edit-time-input" required>
         <button type="button" class="remove-time-btn" onclick="removeEditTimeInput(this)">×</button>
       `;
-      container.appendChild(newGroup);
-      updateEditRemoveButtons();
-    }
-
-    function removeEditTimeInput(button) {
-      const container = document.getElementById('editTimesContainer');
-      if (container.children.length > 1) {
-        button.parentElement.remove();
+        container.appendChild(newGroup);
         updateEditRemoveButtons();
       }
-    }
 
-    function updateEditRemoveButtons() {
-      const container = document.getElementById('editTimesContainer');
-      const buttons = container.querySelectorAll('.remove-time-btn');
-      buttons.forEach((btn, index) => {
-        btn.style.display = container.children.length > 1 ? 'block' : 'none';
-      });
-    }
-
-    async function loadReminders() {
-      const response = await fetch('/api/reminders');
-      const reminders = await response.json();
-
-      const container = document.getElementById('reminders');
-      if (reminders.length === 0) {
-        container.innerHTML = '<div class="empty">Немає нагадувань</div>';
-        return;
+      function removeEditTimeInput(button) {
+        const container = document.getElementById('editTimesContainer');
+        if (container.children.length > 1) {
+          button.parentElement.remove();
+          updateEditRemoveButtons();
+        }
       }
 
-      const dayNames = ['', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
+      function updateEditRemoveButtons() {
+        const container = document.getElementById('editTimesContainer');
+        const buttons = container.querySelectorAll('.remove-time-btn');
+        buttons.forEach((btn, index) => {
+          btn.style.display = container.children.length > 1 ? 'block' : 'none';
+        });
+      }
 
-      // Отримати поточний час в Europe/Kyiv
-      const now = new Date();
-      const kievTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Kyiv' }));
-      const currentHour = kievTime.getHours();
-      const currentMinute = kievTime.getMinutes();
-      const currentTotalMinutes = currentHour * 60 + currentMinute;
-      const currentDay = kievTime.getDay() || 7; // 1=Пн, 7=Нд
+      async function loadReminders() {
+        const response = await fetch('/api/reminders');
+        const reminders = await response.json();
 
-      // Сортування за актуальністю
-      const sortedReminders = [...reminders].sort((a, b) => {
-        const timesA = a.times || (a.time ? [a.time] : ['10:00']);
-        const timesB = b.times || (b.time ? [b.time] : ['10:00']);
-        const [hoursA, minutesA] = timesA[0].split(':').map(Number);
-        const [hoursB, minutesB] = timesB[0].split(':').map(Number);
-        const reminderTotalMinutesA = hoursA * 60 + minutesA;
-        const reminderTotalMinutesB = hoursB * 60 + minutesB;
-
-        // Перевірити чи нагадування на сьогодні
-        const isTodayA = a.days.includes(currentDay);
-        const isTodayB = b.days.includes(currentDay);
-
-        if (isTodayA && !isTodayB) return -1;
-        if (!isTodayA && isTodayB) return 1;
-
-        if (isTodayA && isTodayB) {
-          // Обидва сьогодні - сортувати за часом (найближче перше)
-          const diffA = reminderTotalMinutesA - currentTotalMinutes;
-          const diffB = reminderTotalMinutesB - currentTotalMinutes;
-
-          // Якщо час вже минув, вважати як завтра
-          const adjustedDiffA = diffA >= 0 ? diffA : diffA + 24 * 60;
-          const adjustedDiffB = diffB >= 0 ? diffB : diffB + 24 * 60;
-
-          return adjustedDiffA - adjustedDiffB;
+        const container = document.getElementById('reminders');
+        if (reminders.length === 0) {
+          container.innerHTML = '<div class="empty">Немає нагадувань</div>';
+          return;
         }
 
-        // Обидва не сьогодні - сортувати за часом
-        return timesA[0].localeCompare(timesB[0]);
-      });
+        const dayNames = ['', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
 
-      container.innerHTML = sortedReminders.map(r => {
-        const times = r.times || (r.time ? [r.time] : ['10:00']);
-        const isSoon = times.some(time => {
-          const [hours, minutes] = time.split(':').map(Number);
-          const reminderTotalMinutes = hours * 60 + minutes;
-          const diff = reminderTotalMinutes - currentTotalMinutes;
-          return diff >= 0 && diff <= 60;
+        // Отримати поточний час в Europe/Kyiv
+        const now = new Date();
+        const kievTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Kyiv' }));
+        const currentHour = kievTime.getHours();
+        const currentMinute = kievTime.getMinutes();
+        const currentTotalMinutes = currentHour * 60 + currentMinute;
+        const currentDay = kievTime.getDay() || 7; // 1=Пн, 7=Нд
+
+        // Сортування за актуальністю
+        const sortedReminders = [...reminders].sort((a, b) => {
+          const timesA = a.times || (a.time ? [a.time] : ['10:00']);
+          const timesB = b.times || (b.time ? [b.time] : ['10:00']);
+          const [hoursA, minutesA] = timesA[0].split(':').map(Number);
+          const [hoursB, minutesB] = timesB[0].split(':').map(Number);
+          const reminderTotalMinutesA = hoursA * 60 + minutesA;
+          const reminderTotalMinutesB = hoursB * 60 + minutesB;
+
+          // Перевірити чи нагадування на сьогодні
+          const isTodayA = a.days.includes(currentDay);
+          const isTodayB = b.days.includes(currentDay);
+
+          if (isTodayA && !isTodayB) return -1;
+          if (!isTodayA && isTodayB) return 1;
+
+          if (isTodayA && isTodayB) {
+            // Обидва сьогодні - сортувати за часом (найближче перше)
+            const diffA = reminderTotalMinutesA - currentTotalMinutes;
+            const diffB = reminderTotalMinutesB - currentTotalMinutes;
+
+            // Якщо час вже минув, вважати як завтра
+            const adjustedDiffA = diffA >= 0 ? diffA : diffA + 24 * 60;
+            const adjustedDiffB = diffB >= 0 ? diffB : diffB + 24 * 60;
+
+            return adjustedDiffA - adjustedDiffB;
+          }
+
+          // Обидва не сьогодні - сортувати за часом
+          return timesA[0].localeCompare(timesB[0]);
         });
 
-        return `
+        container.innerHTML = sortedReminders.map(r => {
+          const times = r.times || (r.time ? [r.time] : ['10:00']);
+          const isSoon = times.some(time => {
+            const [hours, minutes] = time.split(':').map(Number);
+            const reminderTotalMinutes = hours * 60 + minutes;
+            const diff = reminderTotalMinutes - currentTotalMinutes;
+            return diff >= 0 && diff <= 60;
+          });
+
+          return `
           <div class="reminder-item ${isSoon ? 'soon' : ''}">
             <div>
               <span class="reminder-time">${times.join(', ')}</span>
-              <span class="reminder-message">${r.message || 'Зарядка!'}</span>
+              <span class="reminder-message">${r.type === 'webhook' ? `🔗 Webhook: ${r.webhook_url || 'N/A'} (${r.mail_count || 1} листів)` : (r.message || 'Зарядка!')}</span>
+              ${r.type === 'webhook' && r.target_url ? `<div class="reminder-days" style="font-size: 11px;">Target: ${r.target_url}</div>` : ''}
               <div class="reminder-days">${(r.days || [1, 2, 3, 4, 5]).map(d => dayNames[d]).join(', ')}</div>
             </div>
             <div>
@@ -594,123 +643,186 @@
             </div>
           </div>
         `;
-      }).join('');
-    }
-
-    async function addReminder() {
-      const timeInputs = document.querySelectorAll('.time-input');
-      const times = Array.from(timeInputs).map(input => input.value).filter(t => t);
-      const message = document.getElementById('message').value;
-      const checkboxes = document.querySelectorAll('.days-selector input:checked');
-      const days = Array.from(checkboxes).map(cb => parseInt(cb.value));
-      const intervalValue = parseInt(document.getElementById('intervalValue').value) || 0;
-      const intervalType = document.getElementById('intervalType').value;
-      const startDate = document.getElementById('startDate').value;
-      const endDate = document.getElementById('endDate').value || null;
-
-      if (times.length === 0) {
-        alert('Вкажіть хоча б один час');
-        return;
+        }).join('');
       }
 
-      if (days.length === 0) {
-        alert('Оберіть хоча б один день');
-        return;
+      async function addReminder() {
+        const timeInputs = document.querySelectorAll('.time-input');
+        const times = Array.from(timeInputs).map(input => input.value).filter(t => t);
+        const type = document.getElementById('reminderType').value;
+        const message = document.getElementById('message').value;
+        const webhookUrl = document.getElementById('webhookUrl').value;
+        const targetUrl = document.getElementById('targetUrl').value;
+        const mailCount = parseInt(document.getElementById('mailCount').value) || 1;
+        const checkboxes = document.querySelectorAll('.days-selector input:checked');
+        const days = Array.from(checkboxes).map(cb => parseInt(cb.value));
+        const intervalValue = parseInt(document.getElementById('intervalValue').value) || 0;
+        const intervalType = document.getElementById('intervalType').value;
+        const startDate = document.getElementById('startDate').value;
+        const endDate = document.getElementById('endDate').value || null;
+
+        if (times.length === 0) {
+          alert('Вкажіть хоча б один час');
+          return;
+        }
+
+        if (days.length === 0) {
+          alert('Оберіть хоча б один день');
+          return;
+        }
+
+        if (type === 'webhook' && !webhookUrl) {
+          alert('Вкажіть Webhook URL');
+          return;
+        }
+
+        await fetch('/api/reminders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ times, type, message, webhook_url: webhookUrl, target_url: targetUrl, mail_count: mailCount, days, interval_value: intervalValue, interval_type: intervalType, start_date: startDate, end_date: endDate })
+        });
+
+        closeAddModal();
+        loadReminders();
       }
 
-      await fetch('/api/reminders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ times, message, days, interval_value: intervalValue, interval_type: intervalType, start_date: startDate, end_date: endDate })
-      });
+      async function deleteReminder(id) {
+        await fetch(`/api/reminders/${id}`, { method: 'DELETE' });
+        loadReminders();
+      }
 
-      // Очищуємо тільки час і повідомлення, залишаємо дні та інтервал
-      timeInputs.forEach(input => input.value = '');
-      document.getElementById('message').value = '';
-      loadReminders();
-    }
+      let editingId = null;
 
-    async function deleteReminder(id) {
-      await fetch(`/api/reminders/${id}`, { method: 'DELETE' });
-      loadReminders();
-    }
+      async function openEditModal(id) {
+        const response = await fetch('/api/reminders');
+        const reminders = await response.json();
+        const reminder = reminders.find(r => r.id === id);
 
-    let editingId = null;
+        if (!reminder) return;
 
-    async function openEditModal(id) {
-      const response = await fetch('/api/reminders');
-      const reminders = await response.json();
-      const reminder = reminders.find(r => r.id === id);
+        editingId = id;
+        document.getElementById('editReminderType').value = reminder.type || 'telegram';
+        document.getElementById('editMessage').value = reminder.message || '';
+        document.getElementById('editWebhookUrl').value = reminder.webhook_url || '';
+        document.getElementById('editTargetUrl').value = reminder.target_url || '';
+        document.getElementById('editMailCount').value = reminder.mail_count || 1;
+        document.getElementById('editIntervalValue').value = reminder.interval_value || 0;
+        document.getElementById('editIntervalType').value = reminder.interval_type || 'week';
+        document.getElementById('editStartDate').value = reminder.start_date || new Date().toISOString().split('T')[0];
+        document.getElementById('editEndDate').value = reminder.end_date || '';
 
-      if (!reminder) return;
+        // Toggle webhook fields based on type
+        toggleEditWebhookFields();
 
-      editingId = id;
-      document.getElementById('editMessage').value = reminder.message || '';
-      document.getElementById('editIntervalValue').value = reminder.interval_value || 0;
-      document.getElementById('editIntervalType').value = reminder.interval_type || 'week';
-      document.getElementById('editStartDate').value = reminder.start_date || new Date().toISOString().split('T')[0];
-      document.getElementById('editEndDate').value = reminder.end_date || '';
-
-      // Load times
-      const times = reminder.times || (reminder.time ? [reminder.time] : ['10:00']);
-      const editTimesContainer = document.getElementById('editTimesContainer');
-      editTimesContainer.innerHTML = '';
-      times.forEach((time, index) => {
-        const newGroup = document.createElement('div');
-        newGroup.className = 'time-input-group';
-        newGroup.innerHTML = `
+        // Load times
+        const times = reminder.times || (reminder.time ? [reminder.time] : ['10:00']);
+        const editTimesContainer = document.getElementById('editTimesContainer');
+        editTimesContainer.innerHTML = '';
+        times.forEach((time, index) => {
+          const newGroup = document.createElement('div');
+          newGroup.className = 'time-input-group';
+          newGroup.innerHTML = `
           <input type="time" class="edit-time-input" value="${time}" required>
           <button type="button" class="remove-time-btn" onclick="removeEditTimeInput(this)" style="display: ${times.length > 1 ? 'block' : 'none'};">×</button>
         `;
-        editTimesContainer.appendChild(newGroup);
-      });
+          editTimesContainer.appendChild(newGroup);
+        });
 
-      const checkboxes = document.querySelectorAll('#editDaysSelector input');
-      checkboxes.forEach(cb => {
-        cb.checked = (reminder.days || [1, 2, 3, 4, 5]).includes(parseInt(cb.value));
-      });
+        const checkboxes = document.querySelectorAll('#editDaysSelector input');
+        checkboxes.forEach(cb => {
+          cb.checked = (reminder.days || [1, 2, 3, 4, 5]).includes(parseInt(cb.value));
+        });
 
-      document.getElementById('editModal').classList.add('active');
-    }
-
-    function closeEditModal() {
-      document.getElementById('editModal').classList.remove('active');
-      editingId = null;
-    }
-
-    async function saveEdit() {
-      const editTimeInputs = document.querySelectorAll('.edit-time-input');
-      const times = Array.from(editTimeInputs).map(input => input.value).filter(t => t);
-      const message = document.getElementById('editMessage').value;
-      const checkboxes = document.querySelectorAll('#editDaysSelector input:checked');
-      const days = Array.from(checkboxes).map(cb => parseInt(cb.value));
-      const intervalValue = parseInt(document.getElementById('editIntervalValue').value) || 0;
-      const intervalType = document.getElementById('editIntervalType').value;
-      const startDate = document.getElementById('editStartDate').value;
-      const endDate = document.getElementById('editEndDate').value || null;
-
-      if (times.length === 0) {
-        alert('Вкажіть хоча б один час');
-        return;
+        document.getElementById('editModal').classList.add('active');
       }
 
-      if (days.length === 0) {
-        alert('Оберіть хоча б один день');
-        return;
+      function closeEditModal() {
+        document.getElementById('editModal').classList.remove('active');
+        editingId = null;
       }
 
-      await fetch(`/api/reminders/${editingId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ times, message, days, interval_value: intervalValue, interval_type: intervalType, start_date: startDate, end_date: endDate })
-      });
+      async function saveEdit() {
+        const editTimeInputs = document.querySelectorAll('.edit-time-input');
+        const times = Array.from(editTimeInputs).map(input => input.value).filter(t => t);
+        const type = document.getElementById('editReminderType').value;
+        const message = document.getElementById('editMessage').value;
+        const webhookUrl = document.getElementById('editWebhookUrl').value;
+        const targetUrl = document.getElementById('editTargetUrl').value;
+        const mailCount = parseInt(document.getElementById('editMailCount').value) || 1;
+        const checkboxes = document.querySelectorAll('#editDaysSelector input:checked');
+        const days = Array.from(checkboxes).map(cb => parseInt(cb.value));
+        const intervalValue = parseInt(document.getElementById('editIntervalValue').value) || 0;
+        const intervalType = document.getElementById('editIntervalType').value;
+        const startDate = document.getElementById('editStartDate').value;
+        const endDate = document.getElementById('editEndDate').value || null;
 
-      closeEditModal();
+        if (times.length === 0) {
+          alert('Вкажіть хоча б один час');
+          return;
+        }
+
+        if (days.length === 0) {
+          alert('Оберіть хоча б один день');
+          return;
+        }
+
+        if (type === 'webhook' && !webhookUrl) {
+          alert('Вкажіть Webhook URL');
+          return;
+        }
+
+        await fetch(`/api/reminders/${editingId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ times, type, message, webhook_url: webhookUrl, target_url: targetUrl, mail_count: mailCount, days, interval_value: intervalValue, interval_type: intervalType, start_date: startDate, end_date: endDate })
+        });
+
+        closeEditModal();
+        loadReminders();
+      }
+
       loadReminders();
-    }
 
-    loadReminders();
-  </script>
+      function toggleWebhookFields() {
+        const type = document.getElementById('reminderType').value;
+        const messageGroup = document.getElementById('messageGroup');
+        const webhookFields = document.getElementById('webhookFields');
+        const webhookFields2 = document.getElementById('webhookFields2');
+        const webhookFields3 = document.getElementById('webhookFields3');
+
+        if (type === 'webhook') {
+          messageGroup.style.display = 'none';
+          webhookFields.style.display = 'block';
+          webhookFields2.style.display = 'block';
+          webhookFields3.style.display = 'block';
+        } else {
+          messageGroup.style.display = 'block';
+          webhookFields.style.display = 'none';
+          webhookFields2.style.display = 'none';
+          webhookFields3.style.display = 'none';
+        }
+      }
+
+      function toggleEditWebhookFields() {
+        const type = document.getElementById('editReminderType').value;
+        const messageGroup = document.getElementById('editMessageGroup');
+        const webhookFields = document.getElementById('editWebhookFields');
+        const webhookFields2 = document.getElementById('editWebhookFields2');
+        const webhookFields3 = document.getElementById('editWebhookFields3');
+
+        if (type === 'webhook') {
+          messageGroup.style.display = 'none';
+          webhookFields.style.display = 'block';
+          webhookFields2.style.display = 'block';
+          webhookFields3.style.display = 'block';
+        } else {
+          messageGroup.style.display = 'block';
+          webhookFields.style.display = 'none';
+          webhookFields2.style.display = 'none';
+          webhookFields3.style.display = 'none';
+        }
+      }
+    </script>
 </body>
 
 </html>

@@ -70,7 +70,11 @@ async function initDatabase() {
         interval_value INTEGER DEFAULT 0,
         interval_type VARCHAR(20) DEFAULT 'week',
         start_date DATE DEFAULT CURRENT_DATE,
-        end_date DATE
+        end_date DATE,
+        type VARCHAR(20) DEFAULT 'telegram',
+        webhook_url TEXT,
+        target_url TEXT,
+        mail_count INTEGER DEFAULT 1
       )
     `);
     console.log('✅ Таблиця reminders створена або вже існує');
@@ -81,7 +85,11 @@ async function initDatabase() {
       { column: 'interval_value', type: 'INTEGER DEFAULT 0' },
       { column: 'interval_type', type: 'VARCHAR(20) DEFAULT \'week\'' },
       { column: 'start_date', type: 'DATE DEFAULT CURRENT_DATE' },
-      { column: 'end_date', type: 'DATE' }
+      { column: 'end_date', type: 'DATE' },
+      { column: 'type', type: 'VARCHAR(20) DEFAULT \'telegram\'' },
+      { column: 'webhook_url', type: 'TEXT' },
+      { column: 'target_url', type: 'TEXT' },
+      { column: 'mail_count', type: 'INTEGER DEFAULT 1' }
     ];
 
     for (const migration of migrations) {
@@ -139,7 +147,11 @@ async function loadReminders() {
         interval_value: row.interval_value || 0,
         interval_type: row.interval_type || 'week',
         start_date: row.start_date || new Date().toISOString().split('T')[0],
-        end_date: row.end_date
+        end_date: row.end_date,
+        type: row.type || 'telegram',
+        webhook_url: row.webhook_url,
+        target_url: row.target_url,
+        mail_count: row.mail_count || 1
       }));
     } catch (error) {
       console.error('❌ Помилка завантаження з бази:', error);
@@ -152,13 +164,17 @@ async function loadReminders() {
       // Міграція старих даних з time на times
       return reminders.map(r => ({
         ...r,
-        times: r.times || (r.time ? [r.time] : ['10:00'])
+        times: r.times || (r.time ? [r.time] : ['10:00']),
+        type: r.type || 'telegram',
+        webhook_url: r.webhook_url,
+        target_url: r.target_url,
+        mail_count: r.mail_count || 1
       }));
     } catch {
       const defaults = [
-        { id: '1', times: ['10:00'], message: defaultMessages[0], days: [1, 2, 3, 4, 5], interval_value: 0, interval_type: 'week', start_date: new Date().toISOString().split('T')[0], end_date: null },
-        { id: '2', times: ['13:00'], message: defaultMessages[1], days: [1, 2, 3, 4, 5], interval_value: 0, interval_type: 'week', start_date: new Date().toISOString().split('T')[0], end_date: null },
-        { id: '3', times: ['16:00'], message: defaultMessages[2], days: [1, 2, 3, 4, 5], interval_value: 0, interval_type: 'week', start_date: new Date().toISOString().split('T')[0], end_date: null },
+        { id: '1', times: ['10:00'], message: defaultMessages[0], days: [1, 2, 3, 4, 5], interval_value: 0, interval_type: 'week', start_date: new Date().toISOString().split('T')[0], end_date: null, type: 'telegram' },
+        { id: '2', times: ['13:00'], message: defaultMessages[1], days: [1, 2, 3, 4, 5], interval_value: 0, interval_type: 'week', start_date: new Date().toISOString().split('T')[0], end_date: null, type: 'telegram' },
+        { id: '3', times: ['16:00'], message: defaultMessages[2], days: [1, 2, 3, 4, 5], interval_value: 0, interval_type: 'week', start_date: new Date().toISOString().split('T')[0], end_date: null, type: 'telegram' },
       ];
       await saveReminders(defaults);
       return defaults;
@@ -172,8 +188,8 @@ async function saveReminders(reminders) {
       await pool.query('DELETE FROM reminders');
       for (const reminder of reminders) {
         await pool.query(
-          'INSERT INTO reminders (id, times, message, days, interval_value, interval_type, start_date, end_date) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
-          [reminder.id, reminder.times || ['10:00'], reminder.message, reminder.days, reminder.interval_value || 0, reminder.interval_type || 'week', reminder.start_date || new Date().toISOString().split('T')[0], reminder.end_date || null]
+          'INSERT INTO reminders (id, times, message, days, interval_value, interval_type, start_date, end_date, type, webhook_url, target_url, mail_count) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)',
+          [reminder.id, reminder.times || ['10:00'], reminder.message, reminder.days, reminder.interval_value || 0, reminder.interval_type || 'week', reminder.start_date || new Date().toISOString().split('T')[0], reminder.end_date || null, reminder.type || 'telegram', reminder.webhook_url || null, reminder.target_url || null, reminder.mail_count || 1]
         );
       }
     } catch (error) {
@@ -231,7 +247,8 @@ async function updateCronSchedule() {
 
   // Створити job для кожного нагадування
   reminders.forEach(reminder => {
-    const [hours, minutes] = reminder.time.split(':');
+    const times = reminder.times || ['10:00'];
+    const [hours, minutes] = times[0].split(':');
     const days = reminder.days || [1, 2, 3, 4, 5];
 
     const job = schedule.scheduleJob({
@@ -240,15 +257,32 @@ async function updateCronSchedule() {
       dayOfWeek: days,
       tz: 'Europe/Kyiv'
     }, async () => {
-      const msg = reminder.message || defaultMessages[Math.floor(Math.random() * defaultMessages.length)];
-      console.log(`📨 Надсилаю (${reminder.time}): ${msg}`);
-      await sendTelegramMessage(msg);
+      if (reminder.type === 'webhook' && reminder.webhook_url) {
+        console.log(`📨 Надсилаю webhook (${times.join(', ')}): ${reminder.webhook_url}`);
+        try {
+          await fetch(reminder.webhook_url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              target_url: reminder.target_url,
+              mail_count: reminder.mail_count || 1
+            })
+          });
+          console.log(`✅ Webhook відправлено успішно`);
+        } catch (error) {
+          console.error(`❌ Помилка відправки webhook:`, error.message);
+        }
+      } else {
+        const msg = reminder.message || defaultMessages[Math.floor(Math.random() * defaultMessages.length)];
+        console.log(`📨 Надсилаю (${times.join(', ')}): ${msg}`);
+        await sendTelegramMessage(msg);
+      }
     });
 
     currentJobs.push(job);
   });
 
-  console.log(`📅 Оновлено розклад: ${reminders.map(r => r.time).join(', ')}`);
+  console.log(`📅 Оновлено розклад: ${reminders.map(r => (r.times || ['10:00']).join(', ')).join(', ')}`);
 }
 
 let currentJobs = [];
@@ -342,13 +376,17 @@ app.get('/api/reminders', requireAuth, async (req, res) => {
 // API: додати нагадування
 app.post('/api/reminders', requireAuth, async (req, res) => {
   console.log('📝 Створення нового нагадування:', req.body);
-  const { times, message, days, interval_value, interval_type, start_date, end_date } = req.body;
+  const { times, type, message, webhook_url, target_url, mail_count, days, interval_value, interval_type, start_date, end_date } = req.body;
   const reminders = await loadReminders();
 
   const newReminder = {
     id: Date.now().toString(),
     times: times && times.length > 0 ? times : ['10:00'],
+    type: type || 'telegram',
     message: message || defaultMessages[Math.floor(Math.random() * defaultMessages.length)],
+    webhook_url: webhook_url || null,
+    target_url: target_url || null,
+    mail_count: mail_count || 1,
     days: days || [1, 2, 3, 4, 5],
     interval_value: interval_value || 0,
     interval_type: interval_type || 'week',
@@ -380,7 +418,7 @@ app.delete('/api/reminders/:id', requireAuth, async (req, res) => {
 // API: оновити нагадування
 app.put('/api/reminders/:id', requireAuth, async (req, res) => {
   const { id } = req.params;
-  const { times, message, days, interval_value, interval_type, start_date, end_date } = req.body;
+  const { times, type, message, webhook_url, target_url, mail_count, days, interval_value, interval_type, start_date, end_date } = req.body;
   const reminders = await loadReminders();
 
   const index = reminders.findIndex(r => r.id === id);
@@ -392,7 +430,11 @@ app.put('/api/reminders/:id', requireAuth, async (req, res) => {
   reminders[index] = {
     ...reminders[index],
     times: times && times.length > 0 ? times : reminders[index].times,
+    type: type || reminders[index].type,
     message: message || reminders[index].message,
+    webhook_url: webhook_url !== undefined ? webhook_url : reminders[index].webhook_url,
+    target_url: target_url !== undefined ? target_url : reminders[index].target_url,
+    mail_count: mail_count !== undefined ? mail_count : reminders[index].mail_count,
     days: days || reminders[index].days,
     interval_value: interval_value !== undefined ? interval_value : reminders[index].interval_value,
     interval_type: interval_type || reminders[index].interval_type,
@@ -489,9 +531,26 @@ app.get('/send-reminder', async (req, res) => {
         continue;
       }
 
-      const msg = reminder.message || defaultMessages[Math.floor(Math.random() * defaultMessages.length)];
-      console.log(`📨 [Cron trigger] Надсилаю (${reminder.times.join(', ')}): ${msg}`);
-      await sendTelegramMessage(msg);
+      if (reminder.type === 'webhook' && reminder.webhook_url) {
+        console.log(`📨 [Cron trigger] Надсилаю webhook (${reminder.times.join(', ')}): ${reminder.webhook_url}`);
+        try {
+          await fetch(reminder.webhook_url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              target_url: reminder.target_url,
+              mail_count: reminder.mail_count || 1
+            })
+          });
+          console.log(`✅ [Cron trigger] Webhook відправлено успішно`);
+        } catch (error) {
+          console.error(`❌ [Cron trigger] Помилка відправки webhook:`, error.message);
+        }
+      } else {
+        const msg = reminder.message || defaultMessages[Math.floor(Math.random() * defaultMessages.length)];
+        console.log(`📨 [Cron trigger] Надсилаю (${reminder.times.join(', ')}): ${msg}`);
+        await sendTelegramMessage(msg);
+      }
       lastSentTimes.set(key, now);
       sentCount++;
     }

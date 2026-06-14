@@ -11,7 +11,14 @@
       5,
       6,
       7
-    ]
+    ],
+    "times": [
+      "12:05"
+    ],
+    "interval_value": 0,
+    "interval_type": "week",
+    "start_date": "2026-06-14",
+    "end_date": null
   },
   {
     "id": "1781416863610",
@@ -19,6 +26,9 @@
     "message": "В церкву на 15:30",
     "days": [
       7
+    ],
+    "times": [
+      "13:10"
     ]
   },
   {
@@ -29,6 +39,27 @@
       6
     ],
     "interval_value": 0,
+    "interval_type": "week",
+    "start_date": "2026-06-20",
+    "end_date": null,
+    "times": [
+      "15:00"
+    ]
+  },
+  {
+    "id": "1781427922285",
+    "times": [
+      "13:00"
+    ],
+    "message": "💪 Час руху! Зроби розминку прямо зараз 🔥",
+    "days": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "interval_value": 1,
     "interval_type": "week",
     "start_date": "2026-06-20",
     "end_date": null
