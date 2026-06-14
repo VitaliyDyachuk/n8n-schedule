@@ -178,6 +178,42 @@
       border-color: #667eea;
     }
 
+    .times-container {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .time-input-group {
+      display: flex;
+      gap: 10px;
+    }
+
+    .time-input-group input[type="time"] {
+      flex: 1;
+    }
+
+    .remove-time-btn {
+      background: #ff4757;
+      padding: 12px;
+      font-size: 16px;
+    }
+
+    .remove-time-btn:hover {
+      background: #ff3838;
+    }
+
+    .add-time-btn {
+      background: #4a90e2;
+      padding: 8px 16px;
+      font-size: 14px;
+      margin-top: 10px;
+    }
+
+    .add-time-btn:hover {
+      background: #357abd;
+    }
+
     .reminder-days {
       font-size: 12px;
       color: #888;
@@ -258,12 +294,23 @@
 
 <body>
   <div class="container">
-    <h1>🔔 Нагадування</h1>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+      <h1 style="margin: 0;">🔔 Нагадування</h1>
+      <button onclick="openAddModal()"
+        style="font-size: 24px; padding: 8px 16px; width: 50px; height: 50px; border-radius: 50%;">+</button>
+    </div>
 
-    <div class="form">
+    <div class="form" id="addForm" style="display: none;">
       <div class="form-group">
         <label>Час:</label>
-        <input type="time" id="time" required>
+        <div class="times-container" id="timesContainer">
+          <div class="time-input-group">
+            <input type="time" class="time-input" required>
+            <button type="button" class="remove-time-btn" onclick="removeTimeInput(this)"
+              style="display: none;">×</button>
+          </div>
+        </div>
+        <button type="button" class="add-time-btn" onclick="addTimeInput()">+ Додати час</button>
       </div>
       <div class="form-group">
         <label>Повідомлення:</label>
@@ -301,6 +348,7 @@
         <input type="date" id="endDate">
       </div>
       <button onclick="addReminder()">Додати нагадування</button>
+      <button onclick="closeAddForm()" style="background: #999; margin-left: 10px;">Скасувати</button>
     </div>
 
     <div class="reminders" id="reminders">
@@ -314,7 +362,14 @@
       <div class="form">
         <div class="form-group">
           <label>Час:</label>
-          <input type="time" id="editTime" required>
+          <div class="times-container" id="editTimesContainer">
+            <div class="time-input-group">
+              <input type="time" class="edit-time-input" required>
+              <button type="button" class="remove-time-btn" onclick="removeEditTimeInput(this)"
+                style="display: none;">×</button>
+            </div>
+          </div>
+          <button type="button" class="add-time-btn" onclick="addEditTimeInput()">+ Додати час</button>
         </div>
         <div class="form-group">
           <label>Повідомлення:</label>
@@ -365,6 +420,70 @@
       const today = new Date().toISOString().split('T')[0];
       document.getElementById('startDate').value = today;
     });
+
+    function openAddModal() {
+      document.getElementById('addForm').style.display = 'block';
+    }
+
+    function closeAddForm() {
+      document.getElementById('addForm').style.display = 'none';
+    }
+
+    function addTimeInput() {
+      const container = document.getElementById('timesContainer');
+      const newGroup = document.createElement('div');
+      newGroup.className = 'time-input-group';
+      newGroup.innerHTML = `
+        <input type="time" class="time-input" required>
+        <button type="button" class="remove-time-btn" onclick="removeTimeInput(this)">×</button>
+      `;
+      container.appendChild(newGroup);
+      updateRemoveButtons();
+    }
+
+    function removeTimeInput(button) {
+      const container = document.getElementById('timesContainer');
+      if (container.children.length > 1) {
+        button.parentElement.remove();
+        updateRemoveButtons();
+      }
+    }
+
+    function updateRemoveButtons() {
+      const container = document.getElementById('timesContainer');
+      const buttons = container.querySelectorAll('.remove-time-btn');
+      buttons.forEach((btn, index) => {
+        btn.style.display = container.children.length > 1 ? 'block' : 'none';
+      });
+    }
+
+    function addEditTimeInput() {
+      const container = document.getElementById('editTimesContainer');
+      const newGroup = document.createElement('div');
+      newGroup.className = 'time-input-group';
+      newGroup.innerHTML = `
+        <input type="time" class="edit-time-input" required>
+        <button type="button" class="remove-time-btn" onclick="removeEditTimeInput(this)">×</button>
+      `;
+      container.appendChild(newGroup);
+      updateEditRemoveButtons();
+    }
+
+    function removeEditTimeInput(button) {
+      const container = document.getElementById('editTimesContainer');
+      if (container.children.length > 1) {
+        button.parentElement.remove();
+        updateEditRemoveButtons();
+      }
+    }
+
+    function updateEditRemoveButtons() {
+      const container = document.getElementById('editTimesContainer');
+      const buttons = container.querySelectorAll('.remove-time-btn');
+      buttons.forEach((btn, index) => {
+        btn.style.display = container.children.length > 1 ? 'block' : 'none';
+      });
+    }
 
     async function loadReminders() {
       const response = await fetch('/api/reminders');
@@ -417,15 +536,18 @@
       });
 
       container.innerHTML = sortedReminders.map(r => {
-        const [hours, minutes] = r.time.split(':').map(Number);
-        const reminderTotalMinutes = hours * 60 + minutes;
-        const diff = reminderTotalMinutes - currentTotalMinutes;
-        const isSoon = diff >= 0 && diff <= 60;
+        const times = r.times || (r.time ? [r.time] : ['10:00']);
+        const isSoon = times.some(time => {
+          const [hours, minutes] = time.split(':').map(Number);
+          const reminderTotalMinutes = hours * 60 + minutes;
+          const diff = reminderTotalMinutes - currentTotalMinutes;
+          return diff >= 0 && diff <= 60;
+        });
 
         return `
           <div class="reminder-item ${isSoon ? 'soon' : ''}">
             <div>
-              <span class="reminder-time">${r.time}</span>
+              <span class="reminder-time">${times.join(', ')}</span>
               <span class="reminder-message">${r.message || 'Зарядка!'}</span>
               <div class="reminder-days">${(r.days || [1, 2, 3, 4, 5]).map(d => dayNames[d]).join(', ')}</div>
             </div>
@@ -439,7 +561,8 @@
     }
 
     async function addReminder() {
-      const time = document.getElementById('time').value;
+      const timeInputs = document.querySelectorAll('.time-input');
+      const times = Array.from(timeInputs).map(input => input.value).filter(t => t);
       const message = document.getElementById('message').value;
       const checkboxes = document.querySelectorAll('.days-selector input:checked');
       const days = Array.from(checkboxes).map(cb => parseInt(cb.value));
@@ -448,8 +571,8 @@
       const startDate = document.getElementById('startDate').value;
       const endDate = document.getElementById('endDate').value || null;
 
-      if (!time) {
-        alert('Вкажіть час');
+      if (times.length === 0) {
+        alert('Вкажіть хоча б один час');
         return;
       }
 
@@ -461,14 +584,12 @@
       await fetch('/api/reminders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ time, message, days, interval_value: intervalValue, interval_type: intervalType, start_date: startDate, end_date: endDate })
+        body: JSON.stringify({ times, message, days, interval_value: intervalValue, interval_type: intervalType, start_date: startDate, end_date: endDate })
       });
 
-      document.getElementById('time').value = '';
+      // Очищуємо тільки час і повідомлення, залишаємо дні та інтервал
+      timeInputs.forEach(input => input.value = '');
       document.getElementById('message').value = '';
-      document.getElementById('intervalValue').value = '0';
-      document.getElementById('startDate').value = new Date().toISOString().split('T')[0];
-      document.getElementById('endDate').value = '';
       loadReminders();
     }
 
@@ -487,12 +608,25 @@
       if (!reminder) return;
 
       editingId = id;
-      document.getElementById('editTime').value = reminder.time;
       document.getElementById('editMessage').value = reminder.message || '';
       document.getElementById('editIntervalValue').value = reminder.interval_value || 0;
       document.getElementById('editIntervalType').value = reminder.interval_type || 'week';
       document.getElementById('editStartDate').value = reminder.start_date || new Date().toISOString().split('T')[0];
       document.getElementById('editEndDate').value = reminder.end_date || '';
+
+      // Load times
+      const times = reminder.times || (reminder.time ? [reminder.time] : ['10:00']);
+      const editTimesContainer = document.getElementById('editTimesContainer');
+      editTimesContainer.innerHTML = '';
+      times.forEach((time, index) => {
+        const newGroup = document.createElement('div');
+        newGroup.className = 'time-input-group';
+        newGroup.innerHTML = `
+          <input type="time" class="edit-time-input" value="${time}" required>
+          <button type="button" class="remove-time-btn" onclick="removeEditTimeInput(this)" style="display: ${times.length > 1 ? 'block' : 'none'};">×</button>
+        `;
+        editTimesContainer.appendChild(newGroup);
+      });
 
       const checkboxes = document.querySelectorAll('#editDaysSelector input');
       checkboxes.forEach(cb => {
@@ -508,7 +642,8 @@
     }
 
     async function saveEdit() {
-      const time = document.getElementById('editTime').value;
+      const editTimeInputs = document.querySelectorAll('.edit-time-input');
+      const times = Array.from(editTimeInputs).map(input => input.value).filter(t => t);
       const message = document.getElementById('editMessage').value;
       const checkboxes = document.querySelectorAll('#editDaysSelector input:checked');
       const days = Array.from(checkboxes).map(cb => parseInt(cb.value));
@@ -517,8 +652,8 @@
       const startDate = document.getElementById('editStartDate').value;
       const endDate = document.getElementById('editEndDate').value || null;
 
-      if (!time) {
-        alert('Вкажіть час');
+      if (times.length === 0) {
+        alert('Вкажіть хоча б один час');
         return;
       }
 
@@ -530,7 +665,7 @@
       await fetch(`/api/reminders/${editingId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ time, message, days, interval_value: intervalValue, interval_type: intervalType, start_date: startDate, end_date: endDate })
+        body: JSON.stringify({ times, message, days, interval_value: intervalValue, interval_type: intervalType, start_date: startDate, end_date: endDate })
       });
 
       closeEditModal();

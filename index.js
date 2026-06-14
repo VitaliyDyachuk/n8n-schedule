@@ -39,7 +39,7 @@ async function initDatabase() {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS reminders (
         id VARCHAR(255) PRIMARY KEY,
-        time VARCHAR(10) NOT NULL,
+        times TEXT[] NOT NULL,
         message TEXT,
         days INTEGER[] NOT NULL,
         interval_value INTEGER DEFAULT 0,
@@ -53,10 +53,10 @@ async function initDatabase() {
     const result = await pool.query('SELECT COUNT(*) FROM reminders');
     if (parseInt(result.rows[0].count) === 0) {
       await pool.query(`
-        INSERT INTO reminders (id, time, message, days, interval_value, interval_type, start_date, end_date) VALUES
-        ('1', '10:00', '🏋️ Час зарядки! Встань і розімнися 💪', ARRAY[1,2,3,4,5], 0, 'week', CURRENT_DATE, NULL),
-        ('2', '13:00', '🧘 Пора розім''ятись! Зроби кілька вправ 🤸', ARRAY[1,2,3,4,5], 0, 'week', CURRENT_DATE, NULL),
-        ('3', '16:00', '🏃 Перерва на зарядку! Твоє тіло скаже дякую 🙏', ARRAY[1,2,3,4,5], 0, 'week', CURRENT_DATE, NULL)
+        INSERT INTO reminders (id, times, message, days, interval_value, interval_type, start_date, end_date) VALUES
+        ('1', ARRAY['10:00'], '🏋️ Час зарядки! Встань і розімнися 💪', ARRAY[1,2,3,4,5], 0, 'week', CURRENT_DATE, NULL),
+        ('2', ARRAY['13:00'], '🧘 Пора розім''ятись! Зроби кілька вправ 🤸', ARRAY[1,2,3,4,5], 0, 'week', CURRENT_DATE, NULL),
+        ('3', ARRAY['16:00'], '🏃 Перерва на зарядку! Твоє тіло скаже дякую 🙏', ARRAY[1,2,3,4,5], 0, 'week', CURRENT_DATE, NULL)
       `);
       console.log('✅ Дефолтні нагадування додані');
     }
@@ -76,10 +76,10 @@ const defaultMessages = [
 async function loadReminders() {
   if (useDatabase) {
     try {
-      const result = await pool.query('SELECT * FROM reminders ORDER BY time');
+      const result = await pool.query('SELECT * FROM reminders ORDER BY id');
       return result.rows.map(row => ({
         id: row.id,
-        time: row.time,
+        times: row.times || ['10:00'],
         message: row.message,
         days: row.days,
         interval_value: row.interval_value || 0,
@@ -94,12 +94,17 @@ async function loadReminders() {
   } else {
     try {
       const data = await fs.readFile(REMINDERS_FILE, 'utf8');
-      return JSON.parse(data);
+      const reminders = JSON.parse(data);
+      // Міграція старих даних з time на times
+      return reminders.map(r => ({
+        ...r,
+        times: r.times || (r.time ? [r.time] : ['10:00'])
+      }));
     } catch {
       const defaults = [
-        { id: '1', time: '10:00', message: defaultMessages[0], days: [1, 2, 3, 4, 5], interval_value: 0, interval_type: 'week', start_date: new Date().toISOString().split('T')[0], end_date: null },
-        { id: '2', time: '13:00', message: defaultMessages[1], days: [1, 2, 3, 4, 5], interval_value: 0, interval_type: 'week', start_date: new Date().toISOString().split('T')[0], end_date: null },
-        { id: '3', time: '16:00', message: defaultMessages[2], days: [1, 2, 3, 4, 5], interval_value: 0, interval_type: 'week', start_date: new Date().toISOString().split('T')[0], end_date: null },
+        { id: '1', times: ['10:00'], message: defaultMessages[0], days: [1, 2, 3, 4, 5], interval_value: 0, interval_type: 'week', start_date: new Date().toISOString().split('T')[0], end_date: null },
+        { id: '2', times: ['13:00'], message: defaultMessages[1], days: [1, 2, 3, 4, 5], interval_value: 0, interval_type: 'week', start_date: new Date().toISOString().split('T')[0], end_date: null },
+        { id: '3', times: ['16:00'], message: defaultMessages[2], days: [1, 2, 3, 4, 5], interval_value: 0, interval_type: 'week', start_date: new Date().toISOString().split('T')[0], end_date: null },
       ];
       await saveReminders(defaults);
       return defaults;
@@ -113,8 +118,8 @@ async function saveReminders(reminders) {
       await pool.query('DELETE FROM reminders');
       for (const reminder of reminders) {
         await pool.query(
-          'INSERT INTO reminders (id, time, message, days, interval_value, interval_type, start_date, end_date) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
-          [reminder.id, reminder.time, reminder.message, reminder.days, reminder.interval_value || 0, reminder.interval_type || 'week', reminder.start_date || new Date().toISOString().split('T')[0], reminder.end_date || null]
+          'INSERT INTO reminders (id, times, message, days, interval_value, interval_type, start_date, end_date) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+          [reminder.id, reminder.times || ['10:00'], reminder.message, reminder.days, reminder.interval_value || 0, reminder.interval_type || 'week', reminder.start_date || new Date().toISOString().split('T')[0], reminder.end_date || null]
         );
       }
     } catch (error) {
@@ -216,12 +221,12 @@ app.get('/api/reminders', async (req, res) => {
 
 // API: додати нагадування
 app.post('/api/reminders', async (req, res) => {
-  const { time, message, days, interval_value, interval_type, start_date, end_date } = req.body;
+  const { times, message, days, interval_value, interval_type, start_date, end_date } = req.body;
   const reminders = await loadReminders();
 
   const newReminder = {
     id: Date.now().toString(),
-    time,
+    times: times && times.length > 0 ? times : ['10:00'],
     message: message || defaultMessages[Math.floor(Math.random() * defaultMessages.length)],
     days: days || [1, 2, 3, 4, 5],
     interval_value: interval_value || 0,
@@ -252,7 +257,7 @@ app.delete('/api/reminders/:id', async (req, res) => {
 // API: оновити нагадування
 app.put('/api/reminders/:id', async (req, res) => {
   const { id } = req.params;
-  const { time, message, days, interval_value, interval_type, start_date, end_date } = req.body;
+  const { times, message, days, interval_value, interval_type, start_date, end_date } = req.body;
   const reminders = await loadReminders();
 
   const index = reminders.findIndex(r => r.id === id);
@@ -263,7 +268,7 @@ app.put('/api/reminders/:id', async (req, res) => {
 
   reminders[index] = {
     ...reminders[index],
-    time: time || reminders[index].time,
+    times: times && times.length > 0 ? times : reminders[index].times,
     message: message || reminders[index].message,
     days: days || reminders[index].days,
     interval_value: interval_value !== undefined ? interval_value : reminders[index].interval_value,
@@ -297,26 +302,26 @@ app.get('/send-reminder', async (req, res) => {
   console.log(`🔍 [Cron trigger] Перевірка: час=${currentTime}, день=${currentDay}, дата=${currentDate}, нагадувань=${reminders.length}`);
 
   const matchingReminders = reminders.filter(r => {
-    // Перевірка часу та дня тижня
-    if (r.time !== currentTime || !r.days.includes(currentDay)) {
+    // Перевірка часу та дня тижня (тепер times - це масив)
+    if (!r.times || !r.times.includes(currentTime) || !r.days.includes(currentDay)) {
       return false;
     }
 
     // Перевірка start_date
     if (r.start_date && currentDate < r.start_date) {
-      console.log(`⏭️ [Cron trigger] Пропускаю (${r.time}): ще не настав start_date (${r.start_date})`);
+      console.log(`⏭️ [Cron trigger] Пропускаю (${r.times.join(', ')}): ще не настав start_date (${r.start_date})`);
       return false;
     }
 
     // Перевірка end_date
     if (r.end_date && currentDate > r.end_date) {
-      console.log(`⏭️ [Cron trigger] Пропускаю (${r.time}): вже минув end_date (${r.end_date})`);
+      console.log(`⏭️ [Cron trigger] Пропускаю (${r.times.join(', ')}): вже минув end_date (${r.end_date})`);
       return false;
     }
 
     // Перевірка інтервалу
     if (r.interval_value > 0) {
-      const key = `${r.id}`;
+      const key = `${r.id}-${currentTime}`;
       const lastSent = lastSentTimes.get(key);
 
       if (lastSent) {
@@ -338,7 +343,7 @@ app.get('/send-reminder', async (req, res) => {
         }
 
         if (now - lastSentDate < intervalMs) {
-          console.log(`⏭️ [Cron trigger] Пропускаю (${r.time}): інтервал ще не минув (${r.interval_value} ${r.interval_type})`);
+          console.log(`⏭️ [Cron trigger] Пропускаю (${r.times.join(', ')}): інтервал ще не минув (${r.interval_value} ${r.interval_type})`);
           return false;
         }
       }
@@ -352,17 +357,17 @@ app.get('/send-reminder', async (req, res) => {
   if (matchingReminders.length > 0) {
     let sentCount = 0;
     for (const reminder of matchingReminders) {
-      const key = `${reminder.id}`;
+      const key = `${reminder.id}-${currentTime}`;
       const lastSent = lastSentTimes.get(key);
 
       // Перевірка: чи минула хоча б хвилина з останнього відправлення (для запобігання дублюванню)
       if (lastSent && (now - lastSent) < 60000) {
-        console.log(`⏭️ [Cron trigger] Пропускаю (${reminder.time}): вже відправлено ${(now - lastSent) / 1000}с тому`);
+        console.log(`⏭️ [Cron trigger] Пропускаю (${reminder.times.join(', ')}): вже відправлено ${(now - lastSent) / 1000}с тому`);
         continue;
       }
 
       const msg = reminder.message || defaultMessages[Math.floor(Math.random() * defaultMessages.length)];
-      console.log(`📨 [Cron trigger] Надсилаю (${reminder.time}): ${msg}`);
+      console.log(`📨 [Cron trigger] Надсилаю (${reminder.times.join(', ')}): ${msg}`);
       await sendTelegramMessage(msg);
       lastSentTimes.set(key, now);
       sentCount++;
