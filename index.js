@@ -75,13 +75,22 @@ async function initDatabase() {
     `);
     console.log('✅ Таблиця reminders створена або вже існує');
 
-    // Migration: add times column if it doesn't exist (for old tables with 'time' column)
-    try {
-      await pool.query(`ALTER TABLE reminders ADD COLUMN IF NOT EXISTS times TEXT[]`);
-      console.log('✅ Колонка times додана або вже існує');
-    } catch (error) {
-      // Column might already exist, ignore error
-      console.log('ℹ️ Колонка times вже існує або інша проблема:', error.message);
+    // Migration: add missing columns for old database schema
+    const migrations = [
+      { column: 'times', type: 'TEXT[]' },
+      { column: 'interval_value', type: 'INTEGER DEFAULT 0' },
+      { column: 'interval_type', type: 'VARCHAR(20) DEFAULT \'week\'' },
+      { column: 'start_date', type: 'DATE DEFAULT CURRENT_DATE' },
+      { column: 'end_date', type: 'DATE' }
+    ];
+
+    for (const migration of migrations) {
+      try {
+        await pool.query(`ALTER TABLE reminders ADD COLUMN IF NOT EXISTS ${migration.column} ${migration.type}`);
+        console.log(`✅ Колонка ${migration.column} додана або вже існує`);
+      } catch (error) {
+        console.log(`ℹ️ Колонка ${migration.column} вже існує або інша проблема:`, error.message);
+      }
     }
 
     const result = await pool.query('SELECT COUNT(*) FROM reminders');
