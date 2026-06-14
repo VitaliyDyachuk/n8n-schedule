@@ -350,8 +350,7 @@
 
     <div id="reminders-tab">
       <div class="tabs">
-        <button class="tab-btn active" onclick="filterReminders('all')">Всі</button>
-        <button class="tab-btn" onclick="filterReminders('telegram')">Telegram</button>
+        <button class="tab-btn active" onclick="filterReminders('telegram')">Telegram</button>
         <button class="tab-btn" onclick="filterReminders('webhook')">Webhook</button>
       </div>
 
@@ -367,16 +366,12 @@
 
     <div class="modal" id="addModal">
       <div class="modal-content">
-        <h2>Додати нагадування</h2>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+          <h2 style="margin: 0;">Додати нагадування</h2>
+          <button onclick="closeAddModal()"
+            style="background: none; border: none; font-size: 24px; cursor: pointer; padding: 0;">×</button>
+        </div>
         <div class="form">
-          <div class="form-group">
-            <label>Тип нагадування:</label>
-            <select id="reminderType" onchange="toggleWebhookFields()"
-              style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px;">
-              <option value="telegram">Telegram повідомлення</option>
-              <option value="webhook">Webhook (відправка команди на інший сайт)</option>
-            </select>
-          </div>
           <div class="form-group">
             <label>Час:</label>
             <div class="times-container" id="timesContainer">
@@ -445,7 +440,11 @@
 
     <div class="modal" id="editModal">
       <div class="modal-content">
-        <h2>Редагувати нагадування</h2>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+          <h2 style="margin: 0;">Редагувати нагадування</h2>
+          <button onclick="closeEditModal()"
+            style="background: none; border: none; font-size: 24px; cursor: pointer; padding: 0;">×</button>
+        </div>
         <div class="form">
           <div class="form-group">
             <label>Тип нагадування:</label>
@@ -528,7 +527,7 @@
         document.getElementById('startDate').value = today;
       });
 
-      let currentFilter = 'all';
+      let currentFilter = 'telegram';
 
       function filterReminders(filterType) {
         currentFilter = filterType;
@@ -545,6 +544,18 @@
       function openAddModal() {
         const today = new Date().toISOString().split('T')[0];
         document.getElementById('startDate').value = today;
+        // Показати/сховати webhook поля залежно від типу
+        if (currentFilter === 'webhook') {
+          document.getElementById('messageGroup').style.display = 'none';
+          document.getElementById('webhookFields').style.display = 'block';
+          document.getElementById('webhookFields2').style.display = 'block';
+          document.getElementById('webhookFields3').style.display = 'block';
+        } else {
+          document.getElementById('messageGroup').style.display = 'block';
+          document.getElementById('webhookFields').style.display = 'none';
+          document.getElementById('webhookFields2').style.display = 'none';
+          document.getElementById('webhookFields3').style.display = 'none';
+        }
         document.getElementById('addModal').classList.add('active');
       }
 
@@ -556,9 +567,19 @@
         document.getElementById('webhookUrl').value = '';
         document.getElementById('targetUrl').value = '';
         document.getElementById('mailCount').value = '1';
-        document.getElementById('reminderType').value = 'telegram';
-        toggleWebhookFields();
+        // Скинути поля до стану для Telegram
+        document.getElementById('messageGroup').style.display = 'block';
+        document.getElementById('webhookFields').style.display = 'none';
+        document.getElementById('webhookFields2').style.display = 'none';
+        document.getElementById('webhookFields3').style.display = 'none';
       }
+
+      // Закриття модального вікна при натисканні на фон
+      document.getElementById('addModal').addEventListener('click', function (e) {
+        if (e.target === this) {
+          closeAddModal();
+        }
+      });
 
       function addTimeInput() {
         const container = document.getElementById('timesContainer');
@@ -623,9 +644,7 @@
         const container = document.getElementById('reminders');
 
         // Фільтрація нагадувань
-        const filteredReminders = currentFilter === 'all'
-          ? reminders
-          : reminders.filter(r => r.type === currentFilter);
+        const filteredReminders = reminders.filter(r => r.type === currentFilter);
 
         if (filteredReminders.length === 0) {
           const emptyMessage = reminders.length === 0
@@ -645,41 +664,18 @@
         const currentTotalMinutes = currentHour * 60 + currentMinute;
         const currentDay = kievTime.getDay() || 7; // 1=Пн, 7=Нд
 
-        // Сортування за актуальністю
+        // Сортування за новизною (id) та актуальністю
         const sortedReminders = [...filteredReminders].sort((a, b) => {
-          const timesA = a.times || (a.time ? [a.time] : ['10:00']);
-          const timesB = b.times || (b.time ? [b.time] : ['10:00']);
-          const [hoursA, minutesA] = timesA[0].split(':').map(Number);
-          const [hoursB, minutesB] = timesB[0].split(':').map(Number);
-          const reminderTotalMinutesA = hoursA * 60 + minutesA;
-          const reminderTotalMinutesB = hoursB * 60 + minutesB;
-
-          // Перевірити чи нагадування на сьогодні
-          const isTodayA = a.days.includes(currentDay);
-          const isTodayB = b.days.includes(currentDay);
-
-          if (isTodayA && !isTodayB) return -1;
-          if (!isTodayA && isTodayB) return 1;
-
-          if (isTodayA && isTodayB) {
-            // Обидва сьогодні - сортувати за часом (найближче перше)
-            const diffA = reminderTotalMinutesA - currentTotalMinutes;
-            const diffB = reminderTotalMinutesB - currentTotalMinutes;
-
-            // Якщо час вже минув, вважати як завтра
-            const adjustedDiffA = diffA >= 0 ? diffA : diffA + 24 * 60;
-            const adjustedDiffB = diffB >= 0 ? diffB : diffB + 24 * 60;
-
-            return adjustedDiffA - adjustedDiffB;
-          }
-
-          // Обидва не сьогодні - сортувати за часом
-          return timesA[0].localeCompare(timesB[0]);
+          // Спочатку сортуємо за id (новіші перші)
+          const idA = parseInt(a.id) || 0;
+          const idB = parseInt(b.id) || 0;
+          return idB - idA;
         });
 
         container.innerHTML = sortedReminders.map(r => {
           const times = r.times || (r.time ? [r.time] : ['10:00']);
-          const isSoon = times.some(time => {
+          const isToday = (r.days || [1, 2, 3, 4, 5]).includes(currentDay);
+          const isSoon = isToday && times.some(time => {
             const [hours, minutes] = time.split(':').map(Number);
             const reminderTotalMinutes = hours * 60 + minutes;
             const diff = reminderTotalMinutes - currentTotalMinutes;
@@ -706,7 +702,7 @@
       async function addReminder() {
         const timeInputs = document.querySelectorAll('.time-input');
         const times = Array.from(timeInputs).map(input => input.value).filter(t => t);
-        const type = document.getElementById('reminderType').value;
+        const type = currentFilter;
         const message = document.getElementById('message').value;
         const webhookUrl = document.getElementById('webhookUrl').value;
         const targetUrl = document.getElementById('targetUrl').value;
@@ -798,6 +794,13 @@
         document.getElementById('editModal').classList.remove('active');
         editingId = null;
       }
+
+      // Закриття модального вікна при натисканні на фон
+      document.getElementById('editModal').addEventListener('click', function (e) {
+        if (e.target === this) {
+          closeEditModal();
+        }
+      });
 
       async function saveEdit() {
         const editTimeInputs = document.querySelectorAll('.edit-time-input');
