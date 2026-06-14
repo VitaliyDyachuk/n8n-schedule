@@ -63,5 +63,25 @@
     "interval_type": "week",
     "start_date": "2026-06-20",
     "end_date": null
+  },
+  {
+    "id": "1781429248308",
+    "times": [
+      "13:00"
+    ],
+    "message": "🌟 Нагадування: зарядка! Розімни спину та шию 🧘",
+    "days": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "interval_value": 1,
+    "interval_type": "week",
+    "start_date": "2026-06-14",
+    "end_date": null
   }
 ]

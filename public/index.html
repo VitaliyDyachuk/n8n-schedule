@@ -274,6 +274,34 @@
       background: #888;
     }
 
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 30px;
+      border-bottom: 2px solid #e0e0e0;
+      padding-bottom: 10px;
+    }
+
+    .tab-btn {
+      background: transparent;
+      color: #666;
+      border: none;
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+      border-radius: 8px;
+      transition: all 0.3s;
+    }
+
+    .tab-btn:hover {
+      background: #f0f0f0;
+    }
+
+    .tab-btn.active {
+      background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
+      color: white;
+    }
+
     .reminder-item.soon {
       animation: pulse 2s infinite;
     }
@@ -321,6 +349,12 @@
     </div>
 
     <div id="reminders-tab">
+      <div class="tabs">
+        <button class="tab-btn active" onclick="filterReminders('all')">Всі</button>
+        <button class="tab-btn" onclick="filterReminders('telegram')">Telegram</button>
+        <button class="tab-btn" onclick="filterReminders('webhook')">Webhook</button>
+      </div>
+
       <div style="display: flex; justify-content: flex-end; margin-bottom: 20px;">
         <button onclick="openAddModal()" style="font-size: 16px; padding: 12px 24px; border-radius: 8px;">+ Додати
           нагадування</button>
@@ -494,6 +528,20 @@
         document.getElementById('startDate').value = today;
       });
 
+      let currentFilter = 'all';
+
+      function filterReminders(filterType) {
+        currentFilter = filterType;
+
+        // Update tab buttons
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+          btn.classList.remove('active');
+        });
+        event.target.classList.add('active');
+
+        loadReminders();
+      }
+
       function openAddModal() {
         const today = new Date().toISOString().split('T')[0];
         document.getElementById('startDate').value = today;
@@ -573,8 +621,17 @@
         const reminders = await response.json();
 
         const container = document.getElementById('reminders');
-        if (reminders.length === 0) {
-          container.innerHTML = '<div class="empty">Немає нагадувань</div>';
+
+        // Фільтрація нагадувань
+        const filteredReminders = currentFilter === 'all'
+          ? reminders
+          : reminders.filter(r => r.type === currentFilter);
+
+        if (filteredReminders.length === 0) {
+          const emptyMessage = reminders.length === 0
+            ? 'Немає нагадувань'
+            : `Немає ${currentFilter === 'telegram' ? 'Telegram' : 'Webhook'} нагадувань`;
+          container.innerHTML = `<div class="empty">${emptyMessage}</div>`;
           return;
         }
 
@@ -589,7 +646,7 @@
         const currentDay = kievTime.getDay() || 7; // 1=Пн, 7=Нд
 
         // Сортування за актуальністю
-        const sortedReminders = [...reminders].sort((a, b) => {
+        const sortedReminders = [...filteredReminders].sort((a, b) => {
           const timesA = a.times || (a.time ? [a.time] : ['10:00']);
           const timesB = b.times || (b.time ? [b.time] : ['10:00']);
           const [hoursA, minutesA] = timesA[0].split(':').map(Number);
@@ -708,7 +765,8 @@
         document.getElementById('editMailCount').value = reminder.mail_count || 1;
         document.getElementById('editIntervalValue').value = reminder.interval_value || 0;
         document.getElementById('editIntervalType').value = reminder.interval_type || 'week';
-        document.getElementById('editStartDate').value = reminder.start_date || new Date().toISOString().split('T')[0];
+        const startDate = reminder.start_date || new Date().toISOString().split('T')[0];
+        document.getElementById('editStartDate').value = startDate;
         document.getElementById('editEndDate').value = reminder.end_date || '';
 
         // Toggle webhook fields based on type

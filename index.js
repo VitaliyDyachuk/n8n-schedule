@@ -168,7 +168,8 @@ async function loadReminders() {
         type: r.type || 'telegram',
         webhook_url: r.webhook_url,
         target_url: r.target_url,
-        mail_count: r.mail_count || 1
+        mail_count: r.mail_count || 1,
+        start_date: r.start_date || new Date().toISOString().split('T')[0]
       }));
     } catch {
       const defaults = [
