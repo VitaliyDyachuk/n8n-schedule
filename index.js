@@ -75,6 +75,15 @@ async function initDatabase() {
     `);
     console.log('✅ Таблиця reminders створена або вже існує');
 
+    // Migration: add times column if it doesn't exist (for old tables with 'time' column)
+    try {
+      await pool.query(`ALTER TABLE reminders ADD COLUMN IF NOT EXISTS times TEXT[]`);
+      console.log('✅ Колонка times додана або вже існує');
+    } catch (error) {
+      // Column might already exist, ignore error
+      console.log('ℹ️ Колонка times вже існує або інша проблема:', error.message);
+    }
+
     const result = await pool.query('SELECT COUNT(*) FROM reminders');
     const count = parseInt(result.rows[0].count);
     console.log(`📊 В базі ${count} нагадувань`);
