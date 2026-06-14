@@ -93,6 +93,14 @@ async function initDatabase() {
       }
     }
 
+    // Migration: drop old 'time' column if it exists (conflicts with new 'times' column)
+    try {
+      await pool.query(`ALTER TABLE reminders DROP COLUMN IF EXISTS time`);
+      console.log('✅ Стару колонку time видалено');
+    } catch (error) {
+      console.log('ℹ️ Колонка time не існує або інша проблема:', error.message);
+    }
+
     const result = await pool.query('SELECT COUNT(*) FROM reminders');
     const count = parseInt(result.rows[0].count);
     console.log(`📊 В базі ${count} нагадувань`);
