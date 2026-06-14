@@ -20,7 +20,7 @@ const CHAT_ID = process.env.CHAT_ID;
 const DATABASE_URL = process.env.DATABASE_URL;
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-const SESSION_SECRET = process.env.SESSION_SECRET || 'your-secret-key-change-this-in-production';
+const SESSION_SECRET = process.env.SESSION_SECRET;
 
 if (!BOT_TOKEN || !CHAT_ID) {
   console.error('❌ Заповніть BOT_TOKEN та CHAT_ID в .env');
@@ -235,7 +235,7 @@ app.use(session({
   secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: process.env.NODE_ENV === 'production' }
+  cookie: { secure: process.env.NODE_ENV === 'production', sameSite: 'lax' }
 }));
 
 app.use(passport.initialize());
@@ -281,6 +281,7 @@ app.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'em
 app.get('/auth/google/callback',
   passport.authenticate('google', { failureRedirect: '/access-denied' }),
   (req, res) => {
+    console.log('Google OAuth callback successful, user:', req.user?.emails?.[0]?.value);
     res.redirect('/');
   }
 );
