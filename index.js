@@ -341,6 +341,7 @@ app.get('/api/reminders', requireAuth, async (req, res) => {
 
 // API: додати нагадування
 app.post('/api/reminders', requireAuth, async (req, res) => {
+  console.log('📝 Створення нового нагадування:', req.body);
   const { times, message, days, interval_value, interval_type, start_date, end_date } = req.body;
   const reminders = await loadReminders();
 
@@ -355,10 +356,12 @@ app.post('/api/reminders', requireAuth, async (req, res) => {
     end_date: end_date || null
   };
 
+  console.log('📝 Нове нагадування:', newReminder);
   reminders.push(newReminder);
   await saveReminders(reminders);
   await updateCronSchedule();
 
+  console.log('✅ Нагадування створено, загальна кількість:', reminders.length);
   res.json(newReminder);
 });
 
