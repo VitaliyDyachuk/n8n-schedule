@@ -498,29 +498,29 @@ app.get('/send-reminder', async (req, res) => {
     if (r.interval_value > 0) {
       const key = `${r.id}-${currentTime}`;
       const lastSent = lastSentTimes.get(key);
+      const startDate = new Date(r.start_date + 'T00:00:00');
 
-      if (lastSent) {
-        const lastSentDate = new Date(lastSent);
-        let intervalMs;
+      // Визначаємо базову дату для розрахунку інтервалу
+      const baseDate = lastSent ? new Date(lastSent) : startDate;
+      let intervalMs;
 
-        switch (r.interval_type) {
-          case 'week':
-            intervalMs = r.interval_value * 7 * 24 * 60 * 60 * 1000;
-            break;
-          case 'month':
-            intervalMs = r.interval_value * 30 * 24 * 60 * 60 * 1000;
-            break;
-          case 'year':
-            intervalMs = r.interval_value * 365 * 24 * 60 * 60 * 1000;
-            break;
-          default:
-            intervalMs = r.interval_value * 7 * 24 * 60 * 60 * 1000;
-        }
+      switch (r.interval_type) {
+        case 'week':
+          intervalMs = r.interval_value * 7 * 24 * 60 * 60 * 1000;
+          break;
+        case 'month':
+          intervalMs = r.interval_value * 30 * 24 * 60 * 60 * 1000;
+          break;
+        case 'year':
+          intervalMs = r.interval_value * 365 * 24 * 60 * 60 * 1000;
+          break;
+        default:
+          intervalMs = r.interval_value * 7 * 24 * 60 * 60 * 1000;
+      }
 
-        if (now - lastSentDate < intervalMs) {
-          console.log(`⏭️ [Cron trigger] Пропускаю (${r.times.join(', ')}): інтервал ще не минув (${r.interval_value} ${r.interval_type})`);
-          return false;
-        }
+      if (now - baseDate < intervalMs) {
+        console.log(`⏭️ [Cron trigger] Пропускаю (${r.times.join(', ')}): інтервал ще не минув (${r.interval_value} ${r.interval_type})`);
+        return false;
       }
     }
 

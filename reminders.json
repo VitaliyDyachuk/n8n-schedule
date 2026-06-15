@@ -1,7 +1,6 @@
 [
   {
     "id": "2",
-    "time": "13:00",
     "message": "🧘 Пора розім'ятись! Зроби кілька вправ 🤸",
     "days": [
       2,
@@ -23,7 +22,6 @@
   },
   {
     "id": "1781416863610",
-    "time": "13:10",
     "message": "В церкву на 15:30",
     "days": [
       7
@@ -49,9 +47,9 @@
       5,
       6
     ],
-    "interval_value": 1,
+    "interval_value": 0,
     "interval_type": "week",
-    "start_date": "2026-06-14",
+    "start_date": "2026-06-15",
     "end_date": null,
     "type": "telegram",
     "mail_count": 1
