@@ -246,41 +246,44 @@ async function updateCronSchedule() {
   }
   currentJobs = [];
 
-  // Створити job для кожного нагадування
+  // Створити job для кожного часу в кожному нагадуванні
   reminders.forEach(reminder => {
     const times = reminder.times || ['10:00'];
-    const [hours, minutes] = times[0].split(':');
     const days = reminder.days || [1, 2, 3, 4, 5];
 
-    const job = schedule.scheduleJob({
-      hour: parseInt(hours),
-      minute: parseInt(minutes),
-      dayOfWeek: days,
-      tz: 'Europe/Kyiv'
-    }, async () => {
-      if (reminder.type === 'webhook' && reminder.webhook_url) {
-        console.log(`📨 Надсилаю webhook (${times.join(', ')}): ${reminder.webhook_url}`);
-        try {
-          await fetch(reminder.webhook_url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              target_url: reminder.target_url,
-              mail_count: reminder.mail_count || 1
-            })
-          });
-          console.log(`✅ Webhook відправлено успішно`);
-        } catch (error) {
-          console.error(`❌ Помилка відправки webhook:`, error.message);
-        }
-      } else {
-        const msg = reminder.message || defaultMessages[Math.floor(Math.random() * defaultMessages.length)];
-        console.log(`📨 Надсилаю (${times.join(', ')}): ${msg}`);
-        await sendTelegramMessage(msg);
-      }
-    });
+    times.forEach(time => {
+      const [hours, minutes] = time.split(':');
 
-    currentJobs.push(job);
+      const job = schedule.scheduleJob({
+        hour: parseInt(hours),
+        minute: parseInt(minutes),
+        dayOfWeek: days,
+        tz: 'Europe/Kyiv'
+      }, async () => {
+        if (reminder.type === 'webhook' && reminder.webhook_url) {
+          console.log(`📨 Надсилаю webhook (${time}): ${reminder.webhook_url}`);
+          try {
+            await fetch(reminder.webhook_url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                target_url: reminder.target_url,
+                mail_count: reminder.mail_count || 1
+              })
+            });
+            console.log(`✅ Webhook відправлено успішно`);
+          } catch (error) {
+            console.error(`❌ Помилка відправки webhook:`, error.message);
+          }
+        } else {
+          const msg = reminder.message || defaultMessages[Math.floor(Math.random() * defaultMessages.length)];
+          console.log(`📨 Надсилаю (${time}): ${msg}`);
+          await sendTelegramMessage(msg);
+        }
+      });
+
+      currentJobs.push(job);
+    });
   });
 
   console.log(`📅 Оновлено розклад: ${reminders.map(r => (r.times || ['10:00']).join(', ')).join(', ')}`);
