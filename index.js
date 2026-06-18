@@ -468,7 +468,7 @@ app.get('/send-reminder', async (req, res) => {
   // Отримати час в Europe/Kyiv
   const now = new Date();
   const options = { timeZone: 'Europe/Kyiv', hour: '2-digit', minute: '2-digit', hour12: false };
-  const currentTime = new Intl.DateTimeFormat('uk-UA', options).format(now, { hour: '2-digit', minute: '2-digit' });
+  const currentTime = new Intl.DateTimeFormat('en-US', options).format(now);
 
   // День тижня (1=Пн, 7=Нд)
   const kievDate = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Kyiv' }));
